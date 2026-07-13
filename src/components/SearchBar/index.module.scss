@@ -1,0 +1,43 @@
+@use '@/styles/variables.scss' as *;
+
+.container {
+  padding: 0 $page-padding;
+  margin-bottom: $spacing-lg;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  background: $color-bg-input;
+  border-radius: $radius-button;
+  padding: $spacing-sm $spacing-lg;
+}
+
+.icon {
+  margin-right: $spacing-sm;
+}
+
+.iconText {
+  font-size: $font-size-lg;
+}
+
+.input {
+  flex: 1;
+  font-size: $font-size-md;
+  color: $color-text-primary;
+  background: transparent;
+}
+
+.clear {
+  width: 40rpx;
+  height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: $spacing-sm;
+}
+
+.clearText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
