@@ -21,6 +21,7 @@ export function App() {
   const hideNavPaths = [
     '/recipe/',
     '/add',
+    '/favorites',
     '/food-items',
     '/conversions',
     '/settings',

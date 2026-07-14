@@ -10,7 +10,7 @@ type ImportType = 'manual' | 'text' | 'link';
 export function Mine() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const navigate = useNavigate();
-  const { recipes, getFavoritedRecipes } = useRecipesStore();
+  const { recipes, getFavoritedRecipes, toggleFavorite } = useRecipesStore();
   const { getPendingTodos } = useTodosStore();
   const { foodItems } = useFoodItemsStore();
 
@@ -34,7 +34,7 @@ export function Mine() {
   ];
 
   const tools = [
-    { label: '我的食材营养库', icon: Database, path: '/food-items' },
+    { label: '食材营养库', icon: Database, path: '/food-items' },
     { label: '单位换算表', icon: Scale, path: '/conversions' },
     { label: '设置', icon: Settings, path: '/settings' },
   ];
@@ -45,6 +45,10 @@ export function Mine() {
   };
 
   const recentRecipes = [...recipes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3);
+
+  const statPaths: Record<string, string> = {
+    '已收藏': '/favorites',
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -89,8 +93,14 @@ export function Mine() {
         <div className="grid grid-cols-2 gap-3 mb-6">
           {stats.map((stat) => {
             const Icon = stat.icon;
+            const path = statPaths[stat.label];
+            const CardWrapper = path ? 'button' : 'div';
             return (
-              <div key={stat.label} className="card p-4">
+              <CardWrapper
+                key={stat.label}
+                onClick={() => path && navigate(path)}
+                className={`card p-4 ${path ? 'cursor-pointer hover:bg-divider/20 transition-colors text-left w-full' : ''}`}
+              >
                 <div className={`w-10 h-10 rounded-full bg-background flex items-center justify-center mb-3 ${stat.color}`}>
                   <Icon className="w-5 h-5" />
                 </div>
@@ -98,7 +108,7 @@ export function Mine() {
                   {stat.value}
                 </div>
                 <div className="text-xs text-secondary">{stat.label}</div>
-              </div>
+              </CardWrapper>
             );
           })}
         </div>
@@ -110,30 +120,40 @@ export function Mine() {
             </div>
             <div className="divide-y divide-divider">
               {favoritedRecipes.map((recipe) => (
-                <button
+                <div
                   key={recipe.id}
-                  onClick={() => navigate(`/recipe/${recipe.id}`)}
-                  className="w-full flex items-center gap-4 p-4 hover:bg-background transition-colors"
+                  className="flex items-center gap-4 p-4"
                 >
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-divider/30">
-                    {recipe.image ? (
-                      <img
-                        src={recipe.image}
-                        alt={recipe.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-center p-1">
-                        <span className="text-secondary text-xs break-words">{recipe.title}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="font-medium text-primary">{recipe.title}</p>
-                    <p className="text-xs text-secondary">{recipe.category}</p>
-                  </div>
-                  <Heart className="w-4 h-4 text-accent fill-current" />
-                </button>
+                  <button
+                    onClick={() => navigate(`/recipe/${recipe.id}`)}
+                    className="flex-1 flex items-center gap-4 text-left"
+                  >
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-divider/30 flex-shrink-0">
+                      {recipe.image ? (
+                        <img
+                          src={recipe.image}
+                          alt={recipe.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-center p-1">
+                          <span className="text-secondary text-xs break-words">{recipe.title}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-primary truncate">{recipe.title}</p>
+                      <p className="text-xs text-secondary">{recipe.category}</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => toggleFavorite(recipe.id)}
+                    className="p-2 hover:bg-divider/50 rounded-full transition-colors text-accent flex-shrink-0"
+                    title="取消收藏"
+                  >
+                    <Heart className="w-4 h-4 fill-current" />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
