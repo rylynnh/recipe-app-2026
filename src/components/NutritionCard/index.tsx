@@ -13,20 +13,20 @@ export function NutritionCard({ nutrition }: NutritionCardProps) {
   ];
 
   return (
-    <div className="card p-4">
-      <h3 className="font-display text-lg font-medium text-primary mb-4">营养成分</h3>
-      <div className="grid grid-cols-4 gap-2">
+    <div className="card p-5">
+      <h3 className="font-display text-[17px] font-medium text-primary mb-5">营养成分<span className="text-secondary/50 text-xs font-sans ml-2">每100g</span></h3>
+      <div className="grid grid-cols-4 gap-3">
         {items.map((item) => (
           <div key={item.label} className="text-center">
-            <div className="font-mono-digit text-xl font-medium text-accent mb-1">
+            <div className="font-mono-digit text-[22px] font-semibold text-accent mb-0.5 leading-none">
               {item.value}
             </div>
-            <div className="text-xs text-secondary">{item.unit}</div>
-            <div className="text-xs text-secondary mt-1">{item.label}</div>
+            <div className="text-[11px] text-secondary/60">{item.unit}</div>
+            <div className="text-[11px] text-secondary mt-1.5">{item.label}</div>
           </div>
         ))}
       </div>
-      <p className="text-xs text-secondary text-center mt-4 pt-4 border-t border-divider">
+      <p className="text-[11px] text-secondary/50 text-center mt-5 pt-4" style={{ borderTop: '0.5px solid var(--color-divider)' }}>
         按食材生重估算，未计入烹饪损耗，仅供参考
       </p>
     </div>

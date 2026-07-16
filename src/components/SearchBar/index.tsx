@@ -135,7 +135,7 @@ export function SearchBar({ onSearch, currentQuery = '' }: SearchBarProps) {
                         </div>
                         <div className="flex-1 text-left">
                           <p className="text-sm font-medium text-primary">{recipe.title}</p>
-                          <p className="text-xs text-secondary">{recipe.category} · {recipe.baseServings}人份</p>
+                          <p className="text-xs text-secondary">{recipe.category}</p>
                         </div>
                       </button>
                     ))}
@@ -163,7 +163,7 @@ export function SearchBar({ onSearch, currentQuery = '' }: SearchBarProps) {
                         </div>
                         <div className="flex-1 text-left">
                           <p className="text-sm font-medium text-primary">{recipe.title}</p>
-                          <p className="text-xs text-secondary">{recipe.category} · {recipe.baseServings}人份</p>
+                          <p className="text-xs text-secondary">{recipe.category}</p>
                         </div>
                       </button>
                     ))}

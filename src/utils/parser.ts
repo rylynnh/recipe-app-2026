@@ -1,24 +1,18 @@
-const TIME_PATTERNS = [
-  /(\d+)\s*分钟/,
-  /(\d+)\s*分/,
-  /(\d+)\s*秒/,
-  /(\d+)\s*小时/,
-  /(\d+)\s*h/,
-  /(\d+)\s*m/,
+const TIME_PATTERN_PAIRS: [RegExp, number][] = [
+  [/(\d+)\s*小时/, 3600],
+  [/(\d+)\s*h(?!ours)/i, 3600],
+  [/(\d+)\s*分钟/, 60],
+  [/(\d+)\s*分(?!钟)/, 60],
+  [/(\d+)\s*秒/, 1],
+  [/(\d+)\s*s(?!ec)/i, 1],
+  [/(\d+)\s*m(?!in)/i, 60],
 ];
 
 export function detectDuration(content: string): number | undefined {
-  for (const pattern of TIME_PATTERNS) {
+  for (const [pattern, multiplier] of TIME_PATTERN_PAIRS) {
     const match = content.match(pattern);
     if (match) {
-      const num = parseInt(match[1]);
-      if (pattern.source.includes('小时') || pattern.source.includes('h')) {
-        return num * 3600;
-      }
-      if (pattern.source.includes('秒')) {
-        return num;
-      }
-      return num * 60;
+      return parseInt(match[1]) * multiplier;
     }
   }
   return undefined;

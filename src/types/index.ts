@@ -23,6 +23,7 @@ export interface Ingredient {
   name: string;
   amount: number;
   unit: string;
+  group?: string;
   linkedFoodItemId?: string;
 }
 
@@ -33,6 +34,7 @@ export interface Step {
   content: string;
   detectedDurationSeconds?: number;
   hasTimer: boolean;
+  image?: string;
 }
 
 export interface FoodItem {
@@ -83,7 +85,7 @@ export interface ReviewItem {
   parsedData: {
     title: string;
     servings: number;
-    ingredients: { name: string; amount: number; unit: string }[];
+    ingredients: { name: string; amount: number; unit: string; group?: string }[];
     steps: { content: string; detectedDurationSeconds?: number }[];
     tags: string[];
   };

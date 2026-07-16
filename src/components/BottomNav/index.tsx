@@ -19,8 +19,8 @@ export function BottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-divider z-40">
-      <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card z-40" style={{ borderTop: '0.5px solid var(--color-divider)' }}>
+      <div className="max-w-lg mx-auto flex items-center justify-around h-[60px] px-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = isActive(tab.id);
@@ -29,11 +29,11 @@ export function BottomNav() {
               key={tab.id}
               onClick={() => navigate(tab.id)}
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                active ? 'text-accent' : 'text-secondary'
+                active ? 'text-accent' : 'text-secondary/70'
               }`}
             >
-              <Icon className={`w-5 h-5 mb-1 transition-transform ${active ? 'scale-110' : ''}`} />
-              <span className="text-xs">{tab.label}</span>
+              <Icon className={`w-[22px] h-[22px] mb-0.5 transition-transform ${active ? 'scale-110' : ''}`} strokeWidth={active ? 2.2 : 1.8} />
+              <span className={`text-[11px] ${active ? 'font-semibold text-accent' : 'font-normal'}`}>{tab.label}</span>
             </button>
           );
         })}

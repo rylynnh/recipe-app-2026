@@ -223,7 +223,7 @@ function dbRowToRecipe(row: any): Recipe {
     baseServings: row.base_servings,
     ingredients: row.ingredients ?? [],
     steps: row.steps ?? [],
-    structureTag: row.structure_tag ?? '荤菜',
+    structureTag: row.structure_tag ?? row.category ?? '荤菜',
     mainIngredient: row.main_ingredient ?? [],
     sourceType: row.source_type,
     sourceSnapshot: row.source_snapshot ?? undefined,

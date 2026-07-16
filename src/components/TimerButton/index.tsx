@@ -1,16 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Play, Pause, RotateCcw, Edit2, Check, X } from 'lucide-react';
 import { formatDuration } from '../../utils/parser';
 
 interface TimerButtonProps {
   duration: number;
   stepId: string;
+  onDurationChange?: (newSeconds: number) => void;
 }
 
-export function TimerButton({ duration, stepId }: TimerButtonProps) {
+export function TimerButton({ duration, stepId, onDurationChange }: TimerButtonProps) {
   const [isRunning, setIsRunning] = useState(false);
   const [remaining, setRemaining] = useState(duration);
-  const [initialDuration] = useState(duration);
+  const [initialDuration, setInitialDuration] = useState(duration);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editMinutes, setEditMinutes] = useState(0);
+  const [editSeconds, setEditSeconds] = useState(0);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -30,11 +34,9 @@ export function TimerButton({ duration, stepId }: TimerButtonProps) {
 
   useEffect(() => {
     if (remaining === 0 && !isRunning && initialDuration > 0) {
-      // Try to show notification if permission is granted
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('计时器完成', { body: '步骤已完成，请查看下一步' });
       }
-      // Also try to play a sound
       try {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
@@ -49,13 +51,12 @@ export function TimerButton({ duration, stepId }: TimerButtonProps) {
           audioContext.close();
         }, 500);
       } catch (e) {
-        // Audio not supported, ignore
+        // Audio not supported
       }
     }
   }, [remaining, isRunning, initialDuration]);
 
   const handleToggle = useCallback(() => {
-    // Request notification permission if needed (but don't block timer)
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
@@ -66,6 +67,62 @@ export function TimerButton({ duration, stepId }: TimerButtonProps) {
     setIsRunning(false);
     setRemaining(initialDuration);
   };
+
+  const handleStartEdit = () => {
+    setIsRunning(false);
+    const mins = Math.floor(remaining / 60);
+    const secs = remaining % 60;
+    setEditMinutes(mins);
+    setEditSeconds(secs);
+    setIsEditing(true);
+  };
+
+  const handleConfirmEdit = () => {
+    const totalSeconds = editMinutes * 60 + editSeconds;
+    if (totalSeconds > 0) {
+      setRemaining(totalSeconds);
+      setInitialDuration(totalSeconds);
+      onDurationChange?.(totalSeconds);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <div className="flex items-center gap-1 px-3 py-1.5 bg-background rounded-full border border-divider">
+          <input
+            type="number"
+            min="0"
+            max="999"
+            value={editMinutes}
+            onChange={(e) => setEditMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+            className="w-10 text-center bg-transparent text-primary font-mono-digit text-sm focus:outline-none"
+          />
+          <span className="text-secondary text-xs">分</span>
+          <input
+            type="number"
+            min="0"
+            max="59"
+            value={editSeconds}
+            onChange={(e) => setEditSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+            className="w-10 text-center bg-transparent text-primary font-mono-digit text-sm focus:outline-none"
+          />
+          <span className="text-secondary text-xs">秒</span>
+        </div>
+        <button onClick={handleConfirmEdit} className="p-1.5 text-accent hover:bg-accent/10 rounded-full transition-colors">
+          <Check className="w-4 h-4" />
+        </button>
+        <button onClick={handleCancelEdit} className="p-1.5 text-secondary hover:bg-divider/50 rounded-full transition-colors">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-2 flex items-center gap-2">
@@ -82,6 +139,13 @@ export function TimerButton({ duration, stepId }: TimerButtonProps) {
         ) : (
           <><Play className="w-4 h-4" />{formatDuration(remaining)} 开启计时</>
         )}
+      </button>
+      <button
+        onClick={handleStartEdit}
+        className="p-1.5 text-secondary hover:text-primary hover:bg-divider/50 rounded-full transition-colors"
+        title="修改计时"
+      >
+        <Edit2 className="w-3.5 h-3.5" />
       </button>
       {(isRunning || remaining !== initialDuration) && (
         <button

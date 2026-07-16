@@ -5,58 +5,46 @@ interface RecipeCardProps {
   recipe: Recipe;
 }
 
-const sourceLabels: Record<Recipe['sourceType'], string> = {
-  manual: '手动添加',
-  pasted_text: '文字导入',
-  screenshot: '截图导入',
-  link_xiaohongshu: '来自小红书',
-  link_xiachufang: '来自下厨房',
-  link_wechat: '来自公众号',
-};
-
 export function RecipeCard({ recipe }: RecipeCardProps) {
   const navigate = useNavigate();
 
   return (
     <div
       onClick={() => navigate(`/recipe/${recipe.id}`)}
-      className="card cursor-pointer transition-all duration-300 hover:shadow-md hover:-translate-y-1"
+      className="cursor-pointer group"
     >
-      <div className="relative aspect-square overflow-hidden bg-background">
+      {/* Image area — 4:3 ratio */}
+      <div className="relative w-full overflow-hidden rounded-card" style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}>
         {recipe.image ? (
           <img
             src={recipe.image}
             alt={recipe.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-divider/30 p-4">
-            <span className="text-secondary font-medium text-base text-center break-words">{recipe.title}</span>
+          <div className="w-full h-full flex items-center justify-center p-4">
+            <span className="font-display text-secondary text-base text-center leading-snug line-clamp-3">{recipe.title}</span>
           </div>
         )}
       </div>
-      <div className="p-4">
-        <h3 className="font-display text-lg font-medium text-primary mb-2 line-clamp-1">
+
+      {/* Content */}
+      <div className="pt-3 pb-1">
+        <h3 className="font-display text-[16px] font-medium text-accent leading-snug mb-2 line-clamp-1 group-hover:text-accent/70 transition-colors duration-200">
           {recipe.title}
         </h3>
-        <div className="flex flex-wrap gap-2 mb-3">
-          <span
-            className="text-xs px-2 py-1 bg-accent/10 text-accent rounded-full"
-          >
+        <div className="flex flex-wrap gap-1.5">
+          <span className="text-[11px] px-2 py-0.5 border border-divider text-secondary rounded">
             {recipe.structureTag}
           </span>
           {recipe.mainIngredient.slice(0, 2).map((tag) => (
             <span
               key={tag}
-              className="text-xs px-2 py-1 bg-background text-secondary rounded-full"
+              className="text-[11px] px-2 py-0.5 border border-divider text-secondary/70 rounded"
             >
               {tag}
             </span>
           ))}
-        </div>
-        <div className="text-xs text-secondary flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent/50"></span>
-          {sourceLabels[recipe.sourceType]}
         </div>
       </div>
     </div>

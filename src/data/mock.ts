@@ -7,7 +7,7 @@ export const structureTags: TagDimension[] = [
   { id: 's4', name: '凉菜', dimension: 'structure' },
   { id: 's5', name: '主食', dimension: 'structure' },
   { id: 's6', name: '汤羹', dimension: 'structure' },
-  { id: 's7', name: '烘焙甜点', dimension: 'structure' },
+  { id: 's7', name: '甜品', dimension: 'structure' },
   { id: 's8', name: '饮品', dimension: 'structure' },
 ];
 
@@ -220,7 +220,7 @@ export const mockRecipes: Recipe[] = [
     id: 'r5',
     title: '戚风蛋糕',
     image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=chiffon%20cake%20baking%20food%20photography%20minimalist&image_size=square',
-    category: '烘焙甜点',
+    category: '甜品',
     categoryId: 's7',
     baseServings: 6,
     ingredients: [
@@ -241,7 +241,7 @@ export const mockRecipes: Recipe[] = [
       { id: 's30', recipeId: 'r5', order: 7, content: '倒入模具，震出气泡，放入预热好的烤箱', detectedDurationSeconds: undefined, hasTimer: false },
       { id: 's31', recipeId: 'r5', order: 8, content: '150度烤45分钟，出炉后倒扣放凉', detectedDurationSeconds: 2700, hasTimer: true },
     ],
-    structureTag: '烘焙甜点',
+    structureTag: '甜品',
     mainIngredient: ['蛋奶'],
     sourceType: 'manual',
     createdAt: Date.now() - 86400000,

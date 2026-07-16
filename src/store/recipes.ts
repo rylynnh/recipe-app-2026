@@ -149,6 +149,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
             name: ing.name,
             amount: ing.amount,
             unit: ing.unit,
+            group: ing.group,
           })),
           steps: item.parsedData.steps.map((step, idx) => ({
             id: generateId(),
@@ -212,9 +213,10 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
 
   searchRecipes: (query) => {
     const { recipes } = get();
-    if (!query.trim()) return recipes;
+    const sorted = [...recipes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (!query.trim()) return sorted;
     const lowerQuery = query.toLowerCase();
-    return recipes.filter(
+    return sorted.filter(
       (r) =>
         r.title.toLowerCase().includes(lowerQuery) ||
         r.structureTag.toLowerCase().includes(lowerQuery) ||
@@ -225,8 +227,9 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
 
   filterByStructure: (structureId) => {
     const { recipes } = get();
-    if (structureId === 's1') return recipes;
-    return recipes.filter((r) => r.categoryId === structureId);
+    const sorted = [...recipes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (structureId === 's1') return sorted;
+    return sorted.filter((r) => r.categoryId === structureId);
   },
 
   filterByIngredient: (recipes, ingredientNames) => {
