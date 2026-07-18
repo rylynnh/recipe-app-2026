@@ -58,27 +58,62 @@ export async function loadAllFromSupabase() {
 
 // ============ Recipes ============
 
+/**
+ * 将菜谱同步到 Supabase。
+ *
+ * 修复说明：
+ * - 原始代码直接写入 structure_tag / main_ingredient / favorited 列，
+ *   但数据库中不存在这些列，导致 upsert 静默失败，菜谱只留在本地。
+ * - 修复后先尝试完整字段写入，若因列缺失而失败，则降级为基础字段写入，
+ *   确保菜谱数据至少能同步到云端。
+ *
+ * 可选：在 Supabase SQL Editor 中运行以下 SQL 以启用完整同步：
+ *   ALTER TABLE recipes
+ *     ADD COLUMN IF NOT EXISTS structure_tag text,
+ *     ADD COLUMN IF NOT EXISTS main_ingredient text[] DEFAULT '{}',
+ *     ADD COLUMN IF NOT EXISTS favorited boolean DEFAULT false;
+ */
 export async function syncRecipeToSupabase(recipe: Recipe) {
+  const baseRow = {
+    id: recipe.id,
+    title: recipe.title,
+    image: recipe.image ?? null,
+    category: recipe.category,
+    category_id: recipe.categoryId,
+    base_servings: recipe.baseServings,
+    ingredients: recipe.ingredients,
+    steps: recipe.steps,
+    source_type: recipe.sourceType,
+    source_snapshot: recipe.sourceSnapshot ?? null,
+    note: recipe.note ?? null,
+    created_at: recipe.createdAt,
+    updated_at: recipe.updatedAt,
+    // 兼容现有 tags 列：把 structureTag 写入 tags 数组
+    tags: recipe.structureTag ? [recipe.structureTag] : [],
+  };
+
+  const fullRow = {
+    ...baseRow,
+    structure_tag: recipe.structureTag,
+    main_ingredient: recipe.mainIngredient ?? [],
+    favorited: recipe.favorited ?? false,
+  };
+
   try {
-    const { error } = await supabase.from('recipes').upsert({
-      id: recipe.id,
-      title: recipe.title,
-      image: recipe.image ?? null,
-      category: recipe.category,
-      category_id: recipe.categoryId,
-      base_servings: recipe.baseServings,
-      ingredients: recipe.ingredients,
-      steps: recipe.steps,
-      structure_tag: recipe.structureTag,
-      main_ingredient: recipe.mainIngredient,
-      source_type: recipe.sourceType,
-      source_snapshot: recipe.sourceSnapshot ?? null,
-      note: recipe.note ?? null,
-      favorited: recipe.favorited ?? false,
-      created_at: recipe.createdAt,
-      updated_at: recipe.updatedAt,
-    });
-    if (error) console.error('Supabase sync recipe error:', error);
+    // 先尝试完整写入（需要数据库已添加新列）
+    const { error } = await supabase.from('recipes').upsert(fullRow);
+    if (error) {
+      // 如果是因为列不存在（PGRST204），降级为基础字段写入
+      if (error.code === 'PGRST204' || error.message?.includes('column')) {
+        console.warn('Supabase: 部分列不存在，降级为基础字段同步。请在 Supabase 中运行 ALTER TABLE 添加 structure_tag / main_ingredient / favorited 列。');
+        const { error: fallbackError } = await supabase.from('recipes').upsert(baseRow);
+        if (fallbackError) {
+          console.error('Supabase fallback sync error:', fallbackError);
+        }
+      } else {
+        console.error('Supabase sync recipe error:', error);
+      }
+    }
   } catch (e) {
     console.error('Failed to sync recipe:', e);
   }
@@ -223,7 +258,8 @@ function dbRowToRecipe(row: any): Recipe {
     baseServings: row.base_servings,
     ingredients: row.ingredients ?? [],
     steps: row.steps ?? [],
-    structureTag: row.structure_tag ?? row.category ?? '荤菜',
+    // 优先读新列，不存在时从 tags 或 category 回退
+    structureTag: row.structure_tag ?? row.tags?.[0] ?? row.category ?? '荤菜',
     mainIngredient: row.main_ingredient ?? [],
     sourceType: row.source_type,
     sourceSnapshot: row.source_snapshot ?? undefined,
