@@ -606,3 +606,69 @@ export function formatAmount(amount: number): string {
   }
   return amount.toFixed(amount < 1 ? 2 : 1);
 }
+
+// Auto-detect main ingredient tags from ingredient list
+// Returns an array of matched tags like ["牛肉", "海鲜"] or ["素菜"]
+const INGREDIENT_KEYWORDS: Record<string, string[]> = {
+  '海鲜': ['虾', '蟹', '鱼', '贝', '蛤', '蛏', '蚝', '牡蛎', '扇贝', '鲍鱼', '海参', '鱿鱼', '章鱼', '墨鱼', '海带', '紫菜', '海蜇', '龙虾', '螃蟹', '三文鱼', '金枪鱼', '鱼', '鲈鱼', '草鱼', '鲤鱼', '带鱼', '黄鱼', '虾仁', '蟹肉', '鱼片', '海鲜', '生蚝', '花甲', '子', '花蛤', '文蛤', '青口', '贻贝', '螺', '田螺', '海螺', '虾皮', '海米', '干贝', '瑶柱', '鳗鱼', '鲑鱼', '比目鱼', '石斑鱼', '多宝鱼', '武昌鱼', '鲫鱼', '泥鳅', '黄鳝', '甲鱼', '乌龟'],
+  '牛肉': ['牛', '牛肉', '牛排', '牛腩', '牛腱', '牛筋', '牛尾', '牛舌', '牛肚', '牛百叶'],
+  '猪肉': ['猪', '猪肉', '排骨', '猪排', '猪蹄', '猪肚', '猪耳', '猪舌', '猪腰', '猪脑', '猪血', '五花肉', '里脊', '肉末', '肉馅', '培根', '火腿', '香肠', '腊肉', '叉烧', '猪大肠', '粉肠', '猪心', '猪肝'],
+  '鸡肉': ['鸡', '鸡肉', '鸡翅', '鸡腿', '鸡胸', '鸡爪', '鸡胗', '鸡肝', '鸡心', '鸡蛋', '鸭蛋', '鹌鹑蛋'],
+  '羊肉': ['羊', '羊肉', '羊排', '羊腿', '羊蝎子', '羊肚', '羊杂', '羊脑', '羊蹄'],
+  '鸭肉': ['鸭', '鸭肉', '鸭腿', '鸭胸', '鸭翅', '鸭血', '鸭肠', '鸭掌', '鸭舌', '鸭肝', '鹅', '鹅肉', '鹅肝'],
+};
+
+// Exclusion patterns: if ingredient name contains these, skip the corresponding tag
+const EXCLUSION_PATTERNS: Record<string, string[]> = {
+  '海鲜': ['鱼香', '鱼露', '鱼腥草', '蟹黄酱', '虾酱', '虾油', '蚝油', '海鲜酱', '贝柱粉'],
+  '牛肉': ['牛肉粉', '牛肉精', '牛骨汤料', '牛油'],
+  '猪肉': ['猪肉松', '猪肉脯', '猪油'],
+  '鸡肉': ['鸡精', '鸡粉', '鸡汤', '鸡汁', '鸡油', '鸡蛋羹', '鸡蛋液'],
+  '羊肉': [],
+  '鸭肉': [],
+};
+
+const VEGETARIAN_INDICATORS = ['豆腐', '豆干', '豆皮', '腐竹', '面筋', '素鸡', '素肉', '蘑菇', '香菇', '金针菇', '杏鲍菇', '平菇', '木耳', '银耳', '茄子', '土豆', '番茄', '西红柿', '黄瓜', '冬瓜', '南瓜', '丝瓜', '苦瓜', '辣椒', '青椒', '红椒', '彩椒', '菠菜', '生菜', '白菜', '油菜', '芹菜', '韭菜', '香菜', '葱', '蒜', '姜', '洋葱', '胡萝卜', '白萝卜', '豆芽', '黄豆芽', '绿豆芽', '花生', '蚕豆', '豌豆', '毛豆', '玉米', '笋', '竹笋', '莲藕', '山药', '芋头', '红薯', '紫薯', '地瓜'];
+
+export function detectMainIngredients(ingredients: { name: string; group?: string }[]): string[] {
+  const tags: string[] = [];
+
+  for (const ing of ingredients) {
+    // Skip seasoning groups
+    const groupLower = (ing.group || '').toLowerCase();
+    if (['酱汁', '调料', '调味', '香料', '腌料', '蘸料', '底料'].some(kw => groupLower.includes(kw))) {
+      continue;
+    }
+
+    const name = ing.name.trim();
+    if (!name) continue;
+
+    for (const [tag, keywords] of Object.entries(INGREDIENT_KEYWORDS)) {
+      // Check exclusions first
+      const exclusions = EXCLUSION_PATTERNS[tag] || [];
+      if (exclusions.some(ex => name.includes(ex))) {
+        continue;
+      }
+
+      // Check if any keyword matches
+      if (keywords.some(kw => name.includes(kw))) {
+        if (!tags.includes(tag)) {
+          tags.push(tag);
+        }
+        break; // One tag per ingredient
+      }
+    }
+  }
+
+  // If no meat/seafood tags found, check if it's a vegetarian dish
+  if (tags.length === 0 && ingredients.length > 0) {
+    const hasVegIndicator = ingredients.some(ing =>
+      VEGETARIAN_INDICATORS.some(vi => ing.name.includes(vi))
+    );
+    if (hasVegIndicator) {
+      tags.push('素菜');
+    }
+  }
+
+  return tags;
+}

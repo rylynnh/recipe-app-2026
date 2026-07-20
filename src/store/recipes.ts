@@ -3,6 +3,7 @@ import { Recipe, ReviewItem } from '../types';
 import { mockRecipes } from '../data/mock';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS } from '../utils/storage';
 import { generateId } from '../utils/parser';
+import { detectMainIngredients } from '../utils/nutrition';
 import {
   loadAllFromSupabase,
   syncRecipeToSupabase,
@@ -69,11 +70,15 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
   },
 
   addRecipe: (recipeData) => {
+    const autoTags = detectMainIngredients(recipeData.ingredients);
     const newRecipe: Recipe = {
       ...recipeData,
       id: generateId(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      mainIngredient: recipeData.mainIngredient && recipeData.mainIngredient.length > 0
+        ? recipeData.mainIngredient
+        : autoTags,
     };
     set((state) => {
       const updated = [...state.recipes, newRecipe];
@@ -85,8 +90,25 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
 
   updateRecipe: (id, updates) => {
     set((state) => {
+      const existing = state.recipes.find(r => r.id === id);
+      const mergedUpdates = { ...updates };
+
+      // Auto-detect mainIngredient tags when ingredients are updated
+      if (updates.ingredients) {
+        const autoTags = detectMainIngredients(updates.ingredients);
+        if (autoTags.length > 0) {
+          mergedUpdates.mainIngredient = autoTags;
+        }
+      } else if (existing) {
+        // Re-detect from existing ingredients if not explicitly updating
+        const autoTags = detectMainIngredients(existing.ingredients);
+        if (autoTags.length > 0 && (!mergedUpdates.mainIngredient || mergedUpdates.mainIngredient.length === 0)) {
+          mergedUpdates.mainIngredient = autoTags;
+        }
+      }
+
       const updated = state.recipes.map((r) =>
-        r.id === id ? { ...r, ...updates, updatedAt: Date.now() } : r
+        r.id === id ? { ...r, ...mergedUpdates, updatedAt: Date.now() } : r
       );
       saveToStorage(STORAGE_KEYS.RECIPES, updated);
       const updatedRecipe = updated.find((r) => r.id === id);
@@ -160,7 +182,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
             hasTimer: !!step.detectedDurationSeconds,
           })),
           structureTag: item.parsedData.tags?.[0] || '荤菜',
-          mainIngredient: [],
+          mainIngredient: detectMainIngredients(item.parsedData.ingredients),
           sourceType: item.sourceType,
           sourceSnapshot: item.sourceSnapshot,
           createdAt: Date.now(),
