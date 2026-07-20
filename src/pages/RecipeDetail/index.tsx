@@ -497,7 +497,7 @@ export function RecipeDetail() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm px-5 py-4 flex items-center gap-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
         <button
-          onClick={() => navigate('/mine')}
+          onClick={() => navigate(-1)}
           className="p-2 -ml-2 hover:bg-divider/50 rounded-full transition-colors"
         >
           <ArrowLeft className="w-5 h-5 text-primary" />
