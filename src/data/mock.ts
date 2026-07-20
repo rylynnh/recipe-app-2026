@@ -16,8 +16,9 @@ export const ingredientTags: TagDimension[] = [
   { id: 'i2', name: '牛肉', dimension: 'ingredient' },
   { id: 'i3', name: '猪肉', dimension: 'ingredient' },
   { id: 'i4', name: '海鲜', dimension: 'ingredient' },
-  { id: 'i5', name: '豆制品', dimension: 'ingredient' },
-  { id: 'i6', name: '蛋奶', dimension: 'ingredient' },
+  { id: 'i5', name: '羊肉', dimension: 'ingredient' },
+  { id: 'i6', name: '鸭肉', dimension: 'ingredient' },
+  { id: 'i7', name: '素菜', dimension: 'ingredient' },
 ];
 
 export const foodItems: FoodItem[] = [
