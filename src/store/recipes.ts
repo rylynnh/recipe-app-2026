@@ -63,17 +63,17 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
     await loadAllFromSupabase();
     let recipes = normalizeRecipes(loadFromStorage<Recipe[]>(STORAGE_KEYS.RECIPES, mockRecipes));
 
-    // Migration: auto-detect mainIngredient tags for recipes that don't have them
+    // Migration: re-evaluate mainIngredient tags for ALL recipes
     let needsSave = false;
     recipes = recipes.map((r) => {
-      if (!r.mainIngredient || r.mainIngredient.length === 0) {
-        const autoTags = detectMainIngredients(r.ingredients);
-        if (autoTags.length > 0) {
-          needsSave = true;
-          const updated = { ...r, mainIngredient: autoTags };
-          syncRecipeToSupabase(updated);
-          return updated;
-        }
+      const autoTags = detectMainIngredients(r.ingredients);
+      const currentTags = r.mainIngredient || [];
+      // Update if auto-detected tags differ from current
+      if (JSON.stringify(autoTags) !== JSON.stringify(currentTags)) {
+        needsSave = true;
+        const updated = { ...r, mainIngredient: autoTags };
+        syncRecipeToSupabase(updated);
+        return updated;
       }
       return r;
     });
