@@ -34,15 +34,11 @@ jobs:
           vercel-args: '--prod'
           working-directory: ./
 
-      - name: Configure Tencent Cloud COS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.TENCENT_SECRET_ID }}
-          aws-secret-access-key: ${{ secrets.TENCENT_SECRET_KEY }}
-          aws-region: ${{ secrets.TENCENT_COS_REGION }}
-
       - name: Deploy to Tencent Cloud COS
         env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.TENCENT_SECRET_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
+          AWS_REGION: ${{ secrets.TENCENT_COS_REGION }}
           TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
           TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
         run: |
