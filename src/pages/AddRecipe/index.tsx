@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useFoodItemsStore } from '../../store/foodItems';
 import { detectDurationInText, parsePastedText } from '../../utils/nutrition';
 import { extractTextFromImages } from '../../utils/ocr';
 import { generateId } from '../../utils/parser';
+import { compressImage } from '../../utils/image';
 
 interface ParsedStep {
   content: string;
@@ -21,6 +22,14 @@ export function AddRecipe() {
 
   const [title, setTitle] = useState('');
   const [coverImage, setCoverImage] = useState<string>('');
+  const [isCropping, setIsCropping] = useState(false);
+  const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragType, setDragType] = useState<'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se' | 'resize-n' | 'resize-s' | 'resize-e' | 'resize-w' | null>(null);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [cropStart, setCropStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const cropImageRef = useRef<HTMLImageElement>(null);
+  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
   const [categoryId, setCategoryId] = useState('');
   const [baseServings, setBaseServings] = useState(1);
   const [note, setNote] = useState('');
@@ -63,6 +72,7 @@ export function AddRecipe() {
         }))
       );
     }
+    if (result.note) setNote(result.note);
     const issues: string[] = [];
     if (!result.title) issues.push('未识别到标题，请手动填写');
     if (result.ingredients.length === 0) issues.push('未识别到食材，请手动添加');
@@ -128,35 +138,256 @@ export function AddRecipe() {
         }))
       );
     }
+    if (result.note) setNote(result.note);
   };
 
   // --- Cover image upload ---
-  const handleCoverImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+    try {
+      const compressedDataUrl = await compressImage(file, 800, 0.8);
+      setCoverImage(compressedDataUrl);
+    } catch (error) {
+      console.error('封面图片压缩失败:', error);
       const reader = new FileReader();
       reader.onload = (event) => setCoverImage(event.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
 
-  // --- Step image upload ---
-  const handleStepImageUpload = (stepIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStepImageUpload = async (stepIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    try {
+      const compressedDataUrl = await compressImage(file, 600, 0.7);
       setSteps((prev) =>
-        prev.map((step, i) => (i === stepIndex ? { ...step, image: event.target?.result as string } : step))
+        prev.map((step, i) => (i === stepIndex ? { ...step, image: compressedDataUrl } : step))
       );
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('步骤图片压缩失败:', error);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setSteps((prev) =>
+          prev.map((step, i) => (i === stepIndex ? { ...step, image: event.target?.result as string } : step))
+        );
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const removeStepImage = (stepIndex: number) => {
     setSteps((prev) =>
       prev.map((step, i) => (i === stepIndex ? { ...step, image: undefined } : step))
     );
+  };
+
+  const ASPECT_RATIO = 4 / 3;
+  const MIN_SIZE = 60;
+
+  const startCrop = () => {
+    const img = cropImageRef.current;
+    if (!img) return;
+    let width = img.offsetWidth * 0.8;
+    let height = width / ASPECT_RATIO;
+    if (height > img.offsetHeight * 0.8) {
+      height = img.offsetHeight * 0.8;
+      width = height * ASPECT_RATIO;
+    }
+    setCropArea({
+      x: (img.offsetWidth - width) / 2,
+      y: (img.offsetHeight - height) / 2,
+      width,
+      height,
+    });
+    setIsCropping(true);
+  };
+
+  const cancelCrop = () => {
+    setIsCropping(false);
+    setIsDragging(false);
+    setDragType(null);
+  };
+
+  const applyCrop = () => {
+    const img = cropImageRef.current;
+    const canvas = cropCanvasRef.current;
+    if (!img || !canvas) return;
+
+    const scaleX = img.naturalWidth / img.offsetWidth;
+    const scaleY = img.naturalHeight / img.offsetHeight;
+
+    canvas.width = cropArea.width * scaleX;
+    canvas.height = cropArea.height * scaleY;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(
+        img,
+        cropArea.x * scaleX,
+        cropArea.y * scaleY,
+        cropArea.width * scaleX,
+        cropArea.height * scaleY,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+      setCoverImage(canvas.toDataURL('image/jpeg', 0.9));
+      setIsCropping(false);
+      setIsDragging(false);
+      setDragType(null);
+    }
+  };
+
+  const getCursorStyle = (type: string | null) => {
+    const styles: Record<string, string> = {
+      'move': 'move',
+      'resize-nw': 'nw-resize',
+      'resize-ne': 'ne-resize',
+      'resize-sw': 'sw-resize',
+      'resize-se': 'se-resize',
+      'resize-n': 'n-resize',
+      'resize-s': 's-resize',
+      'resize-e': 'e-resize',
+      'resize-w': 'w-resize',
+    };
+    return styles[type || ''] || 'default';
+  };
+
+  const handleCropMouseDown = (e: React.MouseEvent, type: 'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se' | 'resize-n' | 'resize-s' | 'resize-e' | 'resize-w') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    setDragType(type);
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setCropStart({ ...cropArea });
+  };
+
+  const handleCropMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !dragType) return;
+
+    const img = cropImageRef.current;
+    if (!img) return;
+
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    const minWidth = MIN_SIZE;
+    const minHeight = MIN_SIZE / ASPECT_RATIO;
+
+    let newX = cropStart.x;
+    let newY = cropStart.y;
+    let newWidth = cropStart.width;
+    let newHeight = cropStart.height;
+
+    switch (dragType) {
+      case 'move':
+        newX = Math.max(0, Math.min(img.offsetWidth - cropStart.width, cropStart.x + dx));
+        newY = Math.max(0, Math.min(img.offsetHeight - cropStart.height, cropStart.y + dy));
+        break;
+      case 'resize-se':
+        newWidth = Math.max(minWidth, Math.min(img.offsetWidth - cropStart.x, cropStart.width + dx));
+        newHeight = newWidth / ASPECT_RATIO;
+        if (newHeight > img.offsetHeight - cropStart.y) {
+          newHeight = img.offsetHeight - cropStart.y;
+          newWidth = newHeight * ASPECT_RATIO;
+        }
+        break;
+      case 'resize-nw':
+        newWidth = Math.max(minWidth, cropStart.width - dx);
+        newHeight = newWidth / ASPECT_RATIO;
+        newX = cropStart.x + dx;
+        newY = cropStart.y + dy;
+        if (newX < 0) {
+          newWidth += newX;
+          newX = 0;
+        }
+        if (newY < 0) {
+          newHeight += newY;
+          newY = 0;
+        }
+        if (newWidth < minWidth) {
+          newX -= minWidth - newWidth;
+          newWidth = minWidth;
+          newHeight = minWidth / ASPECT_RATIO;
+        }
+        break;
+      case 'resize-ne':
+        newWidth = Math.max(minWidth, Math.min(img.offsetWidth - cropStart.x, cropStart.width + dx));
+        newHeight = newWidth / ASPECT_RATIO;
+        newY = cropStart.y + dy;
+        if (newY < 0) {
+          newHeight += newY;
+          newY = 0;
+        }
+        if (newHeight > img.offsetHeight - newY) {
+          newHeight = img.offsetHeight - newY;
+          newWidth = newHeight * ASPECT_RATIO;
+        }
+        break;
+      case 'resize-sw':
+        newWidth = Math.max(minWidth, cropStart.width - dx);
+        newHeight = newWidth / ASPECT_RATIO;
+        newX = cropStart.x + dx;
+        if (newX < 0) {
+          newWidth += newX;
+          newX = 0;
+        }
+        if (newHeight > img.offsetHeight - cropStart.y) {
+          newHeight = img.offsetHeight - cropStart.y;
+          newWidth = newHeight * ASPECT_RATIO;
+        }
+        break;
+      case 'resize-n':
+        newHeight = Math.max(minHeight, cropStart.height - dy);
+        newWidth = newHeight * ASPECT_RATIO;
+        newY = cropStart.y + dy;
+        if (newY < 0) {
+          newHeight += newY;
+          newY = 0;
+        }
+        if (newWidth > img.offsetWidth - cropStart.x) {
+          newWidth = img.offsetWidth - cropStart.x;
+          newHeight = newWidth / ASPECT_RATIO;
+        }
+        break;
+      case 'resize-s':
+        newHeight = Math.max(minHeight, Math.min(img.offsetHeight - cropStart.y, cropStart.height + dy));
+        newWidth = newHeight * ASPECT_RATIO;
+        if (newWidth > img.offsetWidth - cropStart.x) {
+          newWidth = img.offsetWidth - cropStart.x;
+          newHeight = newWidth / ASPECT_RATIO;
+        }
+        break;
+      case 'resize-e':
+        newWidth = Math.max(minWidth, Math.min(img.offsetWidth - cropStart.x, cropStart.width + dx));
+        newHeight = newWidth / ASPECT_RATIO;
+        if (newHeight > img.offsetHeight - cropStart.y) {
+          newHeight = img.offsetHeight - cropStart.y;
+          newWidth = newHeight * ASPECT_RATIO;
+        }
+        break;
+      case 'resize-w':
+        newWidth = Math.max(minWidth, cropStart.width - dx);
+        newHeight = newWidth / ASPECT_RATIO;
+        newX = cropStart.x + dx;
+        if (newX < 0) {
+          newWidth += newX;
+          newX = 0;
+        }
+        if (newHeight > img.offsetHeight - cropStart.y) {
+          newHeight = img.offsetHeight - cropStart.y;
+          newWidth = newHeight * ASPECT_RATIO;
+        }
+        break;
+    }
+
+    setCropArea({ x: newX, y: newY, width: newWidth, height: newHeight });
+  };
+
+  const handleCropMouseUp = () => {
+    setIsDragging(false);
+    setDragType(null);
   };
 
   // --- Submit ---
@@ -196,7 +427,9 @@ export function AddRecipe() {
         image: step.image,
       })),
       structureTag: category?.name || '荤菜',
+      techniqueTags: [],
       mainIngredient: [],
+      difficultyLevel: '入门',
       sourceType: showImageOCR && ocrText ? 'screenshot' : 'pasted_text',
       note: note || undefined,
     });
@@ -234,15 +467,118 @@ export function AddRecipe() {
 
           {/* Cover image */}
           <div className="card p-4">
-            <label className="block text-sm font-medium text-primary mb-2">封面图片（选填）</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleCoverImageUpload}
-              className="w-full px-4 py-3 bg-background text-primary rounded-input"
-            />
-            {coverImage && (
-              <img src={coverImage} alt="封面预览" className="w-24 h-24 rounded-lg object-cover mt-3" />
+            <label className="block text-sm font-medium text-primary mb-2">封面图片</label>
+            {coverImage && !isCropping ? (
+              <div className="relative w-full rounded-lg overflow-hidden" style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}>
+                <img
+                  ref={cropImageRef}
+                  src={coverImage}
+                  alt="封面预览"
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  onClick={() => setCoverImage('')}
+                  className="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => startCrop()}
+                  className="absolute bottom-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
+                >
+                  <Crop className="w-4 h-4" />
+                </button>
+              </div>
+            ) : isCropping ? (
+              <div className="space-y-3">
+                <div 
+                  className="relative w-full rounded-lg overflow-hidden" 
+                  style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}
+                  onMouseMove={handleCropMouseMove}
+                  onMouseUp={handleCropMouseUp}
+                  onMouseLeave={handleCropMouseUp}
+                >
+                  <img
+                    ref={cropImageRef}
+                    src={coverImage}
+                    alt="裁剪预览"
+                    className="w-full h-full object-cover"
+                  />
+                  <div
+                    className="absolute border-2 border-accent bg-accent/20"
+                    style={{
+                      width: `${cropArea.width}px`,
+                      height: `${cropArea.height}px`,
+                      left: `${cropArea.x}px`,
+                      top: `${cropArea.y}px`,
+                      cursor: getCursorStyle(dragType) || 'move',
+                    }}
+                    onMouseDown={(e) => handleCropMouseDown(e, 'move')}
+                  >
+                    <div 
+                      className="absolute -top-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-nw-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-nw')}
+                    />
+                    <div 
+                      className="absolute -top-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-ne-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-ne')}
+                    />
+                    <div 
+                      className="absolute -bottom-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-sw-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-sw')}
+                    />
+                    <div 
+                      className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-se-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-se')}
+                    />
+                    <div 
+                      className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-n-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-n')}
+                    />
+                    <div 
+                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-s-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-s')}
+                    />
+                    <div 
+                      className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-w-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-w')}
+                    />
+                    <div 
+                      className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-e-resize"
+                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-e')}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => cancelCrop()}
+                    className="flex-1 py-3 bg-bg-input text-text-secondary rounded-input flex items-center justify-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    取消
+                  </button>
+                  <button
+                    onClick={() => applyCrop()}
+                    className="flex-1 py-3 bg-accent text-text-white rounded-input flex items-center justify-center gap-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    确认裁剪
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="block w-full cursor-pointer">
+                <div className="w-full py-12 bg-bg-input rounded-input flex flex-col items-center justify-center gap-2 hover:bg-bg-hover transition-colors">
+                  <Camera className="w-8 h-8 text-text-tertiary" />
+                  <span className="text-sm text-text-tertiary">点击上传封面图片</span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverImageUpload}
+                  className="hidden"
+                />
+              </label>
             )}
           </div>
 
@@ -558,6 +894,8 @@ export function AddRecipe() {
               </div>
             </div>
           )}
+
+          <canvas ref={cropCanvasRef} className="hidden" />
 
           {/* Note */}
           <div className="card p-4">

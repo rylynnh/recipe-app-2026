@@ -88,7 +88,6 @@ export async function syncRecipeToSupabase(recipe: Recipe) {
     note: recipe.note ?? null,
     created_at: recipe.createdAt,
     updated_at: recipe.updatedAt,
-    // 兼容现有 tags 列：把 structureTag 写入 tags 数组
     tags: recipe.structureTag ? [recipe.structureTag] : [],
   };
 
@@ -260,7 +259,9 @@ function dbRowToRecipe(row: any): Recipe {
     steps: row.steps ?? [],
     // 优先读新列，不存在时从 tags 或 category 回退
     structureTag: row.structure_tag ?? row.tags?.[0] ?? row.category ?? '荤菜',
+    techniqueTags: row.technique_tags ?? [],
     mainIngredient: row.main_ingredient ?? [],
+    difficultyLevel: row.difficulty_level ?? '入门',
     sourceType: row.source_type,
     sourceSnapshot: row.source_snapshot ?? undefined,
     note: row.note ?? undefined,
@@ -327,7 +328,19 @@ function mergeById<T extends { id: string; updatedAt?: number; createdAt?: numbe
       const localTime = existing.updatedAt ?? existing.createdAt ?? 0;
       const remoteTime = item.updatedAt ?? item.createdAt ?? 0;
       if (remoteTime > localTime) {
-        map.set(item.id, item);
+        const merged: T = { ...item };
+        const existingObj = existing as any;
+        const itemObj = item as any;
+        if ('image' in existingObj && 'image' in merged && existingObj.image && !itemObj.image) {
+          (merged as any).image = existingObj.image;
+        }
+        if ('steps' in existingObj && 'steps' in merged && existingObj.steps) {
+          (merged as any).steps = existingObj.steps.map((step: any, index: number) => ({
+            ...(itemObj.steps?.[index] || {}),
+            image: step.image ?? (itemObj.steps?.[index]?.image ?? undefined),
+          }));
+        }
+        map.set(item.id, merged);
       }
     }
   }

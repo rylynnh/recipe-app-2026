@@ -8,7 +8,10 @@ export interface Recipe {
   ingredients: Ingredient[];
   steps: Step[];
   structureTag: string;
+  techniqueTags: string[];
   mainIngredient: string[];
+  difficultyLevel: '入门' | '进阶' | '挑战';
+  totalTimeMinutes?: number;
   sourceType: 'manual' | 'pasted_text' | 'screenshot' | 'link_xiaohongshu' | 'link_xiachufang' | 'link_wechat';
   sourceSnapshot?: string;
   createdAt: number;
@@ -70,7 +73,7 @@ export interface TodoItem {
 export interface TagDimension {
   id: string;
   name: string;
-  dimension: 'structure' | 'ingredient';
+  dimension: 'structure' | 'ingredient' | 'technique';
 }
 
 export interface Nutrition {

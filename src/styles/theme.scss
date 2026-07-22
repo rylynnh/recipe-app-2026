@@ -1,41 +1,36 @@
-// ============================================
-// 主题配色变量（第二阶段模型可修改此文件）
-// ============================================
+$color-primary: #2C2C2C;
+$color-primary-light: #4A4A4A;
+$color-primary-dark: #1A1A1A;
 
-// 品牌主题色：极简高级风格
-$color-primary: #2D3748;
-$color-primary-light: #4A5568;
-$color-primary-dark: #1A202C;
+$color-accent: #D4A373;
+$color-accent-light: #E8C5A0;
+$color-accent-dark: #B8865A;
+$color-accent-tint: #FDF8F3;
 
-// 辅助色
-$color-accent: #F59E0B;
-$color-accent-light: #FBD38D;
+$color-success: #6B9A6B;
+$color-success-light: #A8C5A8;
+$color-warning: #D49A5A;
+$color-warning-light: #E8C5A0;
+$color-error: #C75B5B;
+$color-error-light: #E8A0A0;
+$color-info: #5A8BD4;
 
-// 功能色
-$color-success: #48BB78;
-$color-warning: #ED8936;
-$color-error: #F56565;
-$color-info: #4299E1;
+$color-nutrition-calorie: #C75B5B;
+$color-nutrition-protein: #6B9A6B;
+$color-nutrition-carbs: #5A8BD4;
+$color-nutrition-fat: #D49A5A;
 
-// 营养色
-$color-nutrition-calorie: #F56565;
-$color-nutrition-protein: #48BB78;
-$color-nutrition-carbs: #4299E1;
-$color-nutrition-fat: #ED8936;
-
-// 背景色
-$color-bg-page: #FAFAFA;
+$color-bg-page: #FFFDF8;
 $color-bg-card: #FFFFFF;
-$color-bg-hover: #EDF2F7;
-$color-bg-input: #F7FAFC;
+$color-bg-hover: #FDF8F3;
+$color-bg-input: #F9F6F1;
+$color-bg-divider: #F5F1EB;
 
-// 文本色
-$color-text-primary: #1A202C;
-$color-text-secondary: #4A5568;
-$color-text-tertiary: #718096;
-$color-text-disabled: #A0AEC0;
+$color-text-primary: #2C2C2C;
+$color-text-secondary: #6B6B6B;
+$color-text-tertiary: #9B9B9B;
+$color-text-disabled: #CBCBCB;
 $color-text-white: #FFFFFF;
 
-// 边框色
-$color-border: #E2E8F0;
-$color-divider: #EDF2F7;
+$color-border: #EBE5DD;
+$color-divider: #F0EBE3;

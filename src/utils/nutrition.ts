@@ -54,10 +54,32 @@ export function detectDurationInText(text: string): number {
   return 0;
 }
 
+// Parse an amount string that may be an integer, decimal, fraction (1/4), or mixed number (1 1/2)
+export function parseAmountValue(str: string): number {
+  const s = str.trim();
+  // Mixed number: "1 1/2"
+  const mixedMatch = s.match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if (mixedMatch) {
+    const whole = parseFloat(mixedMatch[1]);
+    const num = parseFloat(mixedMatch[2]);
+    const den = parseFloat(mixedMatch[3]);
+    return den !== 0 ? whole + num / den : whole;
+  }
+  // Fraction: "1/4"
+  const fractionMatch = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if (fractionMatch) {
+    const num = parseFloat(fractionMatch[1]);
+    const den = parseFloat(fractionMatch[2]);
+    return den !== 0 ? Math.round((num / den) * 100) / 100 : 0;
+  }
+  return parseFloat(s) || 0;
+}
+
 export function parsePastedText(text: string): {
   title: string;
   ingredients: { name: string; amount: number; unit: string; group?: string }[];
   steps: string[];
+  note: string;
 } {
   // Clean OCR artifacts like "--- 图片 1 ---"
   const cleaned = text.replace(/---\s*图片\s*\d+\s*---/g, '').replace(/#{1,6}\s*/g, '');
@@ -70,12 +92,16 @@ export function parsePastedText(text: string): {
   let currentGroup: string | undefined;
   let inIngredients = false;
   let inSteps = false;
+  let inNotes = false;
+  let note = '';
   let hasExplicitSection = false;
 
   // Main section headers
   const ingredientHeader = /^[\s]*[【\[]?\s*(食材|材料|配料|主料|辅料|所需食材|你需要|准备)[】\]]?\s*[:：]?\s*$/i;
   const stepHeader = /^[\s]*[【\[]?\s*(步骤|做法|制作|烹饪方法|操作|制作步骤|烹饪步骤|制作方法|操作流程)[】\]]?\s*[:：]?\s*$/i;
   const numberedStep = /^[\s]*(\d+[\.\、\)\s]|[一二三四五六七八九十]+[\.\、]\s*|第[一二三四五六七八九十\d]+步)/;
+  // Note section header: 备注/小贴士/tips etc. (optionally followed by colon and inline content)
+  const noteHeader = /^[【\[]?\s*(备注|小贴士|小提示|温馨提示|提示|tips?|notes?|要点|温馨|注意)\s*[】\]]?\s*(?:[:：]\s*(.*))?$/i;
 
   // Action verbs that strongly indicate a step
   const stepStartVerbs = /^(先|再|然后|接着|最后|将|把|用|取|加入|放入|倒入|取出|捞出|盛出|装盘|摆盘|切|剁|拍|剥|洗|泡|煮|蒸|炒|炸|烤|煎|焖|炖|烧|卤|拌|腌|揉|捏|包|卷|叠|铺|撒|淋|浇|刷|涂|抹|搅|搅打|搅拌|混合|拌匀|翻炒|加热|烧开|煮沸|小火|大火|中火|热锅|起锅|关火|开火|转|调成|调至|静置|放置|晾凉|冷却|冷藏|冷冻|发酵|醒发|松弛|饧|均分|分成|撕成|掰成)/;
@@ -163,23 +189,50 @@ export function parsePastedText(text: string): {
   // Parse a single ingredient line
   const parseIngredientLine = (line: string, group?: string): { name: string; amount: number; unit: string; group?: string } | null => {
     const trimmed = line.trim();
-    // Pattern: name amount unit (e.g., "高筋粉 500g", "盐 3g", "姜 1片")
-    const match = trimmed.match(/^([\u4e00-\u9fa5a-zA-Z\s\(\)（）]+?)\s+(\d+(?:\.\d+)?)\s*([a-zA-Z\u4e00-\u9fa5]+)\s*$/);
+    // Lines starting with action verbs are steps, not ingredients
+    if (stepStartVerbs.test(trimmed)) return null;
+
+    // Amount pattern: fraction (1/4) or decimal/integer (100, 0.5) — fraction first so it wins
+    const AMOUNT = '(\\d+(?:\\.\\d+)?\\s*\\/\\s*\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
+    // Pattern: name [separator] amount unit
+    // Supports: "高筋粉 500g", "猪肉100g", "猪肉-100g", "洋葱（切碎）1/4个", "陈醋 30 g"
+    const match = trimmed.match(new RegExp(`^([\\u4e00-\\u9fa5a-zA-Z\\s\\(\\)（）]+?)\\s*[-–—~～:：]?\\s*${AMOUNT}\\s*([a-zA-Z\\u4e00-\\u9fa5]+)\\s*$`));
     if (match) {
-      return { name: match[1].trim(), amount: parseFloat(match[2]), unit: match[3].trim(), group };
+      const name = match[1].trim();
+      const unit = match[3].trim();
+      // Reject time/temperature units (likely a step, e.g. "浸泡0.5小时", "烤箱200度")
+      if (['小时', '分钟', '秒', '度', '℃'].includes(unit)) return null;
+      // Reject overly long names or units (likely a step description)
+      if (name.length > 20 || unit.length > 4) return null;
+      return { name, amount: parseAmountValue(match[2]), unit, group };
     }
-    // Pattern: name amount unit with space before unit (e.g., "陈醋 30 g")
+
+    // Pattern: name amount unit separated by spaces (e.g., "陈醋 30 g", "猪肉 1/4 个", "猪肉 1 1/2 勺")
     const parts = trimmed.split(/\s+/);
     if (parts.length >= 3) {
       const lastPart = parts[parts.length - 1];
       const secondLast = parts[parts.length - 2];
-      const amount = parseFloat(secondLast);
-      if (!isNaN(amount)) {
-        return { name: parts.slice(0, -2).join(' '), amount, unit: lastPart, group };
+      const isAmountToken = /^(\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?)$/.test(secondLast);
+      if (isAmountToken) {
+        let amount = parseAmountValue(secondLast);
+        let nameEnd = parts.length - 2;
+        // Handle mixed number split across tokens: "1 1/2"
+        if (parts.length >= 4) {
+          const thirdLast = parts[parts.length - 3];
+          if (/^\d+(?:\.\d+)?$/.test(thirdLast) && /^\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?$/.test(secondLast)) {
+            amount = parseAmountValue(thirdLast + ' ' + secondLast);
+            nameEnd = parts.length - 3;
+          }
+        }
+        const name = parts.slice(0, nameEnd).join(' ');
+        if (name && name.length <= 20 && !['小时', '分钟', '秒'].includes(lastPart)) {
+          return { name, amount, unit: lastPart, group };
+        }
       }
     }
-    // Pattern: name + "适量/少许" (e.g., "盐 适量")
-    const amountMatch = trimmed.match(/^([\u4e00-\u9fa5a-zA-Z\s\(\)（）]+?)\s+(适量|少许|若干)$/);
+
+    // Pattern: name + "适量/少许" (e.g., "盐 适量", "盐适量")
+    const amountMatch = trimmed.match(/^([\u4e00-\u9fa5a-zA-Z\s\(\)（）]+?)\s*(适量|少许|若干)$/);
     if (amountMatch) {
       return { name: amountMatch[1].trim(), amount: 0, unit: amountMatch[2], group };
     }
@@ -189,6 +242,30 @@ export function parsePastedText(text: string): {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (!trimmed || /^[-=_]{3,}$/.test(trimmed)) continue;
+
+    // Check for note section header (备注/小贴士/tips etc.)
+    const noteMatch = trimmed.match(noteHeader);
+    if (noteMatch) {
+      inNotes = true;
+      inIngredients = false;
+      inSteps = false;
+      const inlineNote = (noteMatch[2] || '').trim();
+      if (inlineNote) {
+        note = note ? note + '\n' + inlineNote : inlineNote;
+      }
+      continue;
+    }
+
+    // If in notes section, collect lines into note until a new section header appears
+    if (inNotes) {
+      if (ingredientHeader.test(trimmed) || stepHeader.test(trimmed)) {
+        inNotes = false;
+        // Fall through to process this line as a section header below
+      } else {
+        note = note ? note + '\n' + trimmed : trimmed;
+        continue;
+      }
+    }
 
     // Check for main ingredient section header
     if (ingredientHeader.test(trimmed) || trimmed.match(/^(食材|材料|配料|主料|辅料|所需食材)\s*[:：]?\s*$/)) {
@@ -384,9 +461,12 @@ export function parsePastedText(text: string): {
 
   // Fallback: if no steps found but we have content, treat non-ingredient lines as steps
   if (steps.length === 0 && ingredients.length > 0) {
+    const noteLines = note ? note.split('\n') : [];
     for (const line of lines) {
       const t = line.trim();
       if (t === title) continue;
+      if (noteHeader.test(t)) continue;
+      if (noteLines.includes(t)) continue;
       if (looksLikeIngredient(t)) continue;
       if (ingredientHeader.test(t) || stepHeader.test(t)) continue;
       if (isSubGroupHeader(t) !== null) continue;
@@ -400,7 +480,7 @@ export function parsePastedText(text: string): {
     }
   }
 
-  return { title, ingredients, steps };
+  return { title, ingredients, steps, note };
 }
 
 const GENERAL_CONVERSIONS: Record<string, number> = {

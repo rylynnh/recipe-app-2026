@@ -26,11 +26,17 @@ export function updateDataVersion(): void {
   }
 }
 
-export function saveToStorage<T>(key: string, data: T): void {
+export function saveToStorage<T>(key: string, data: T): boolean {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem(key, jsonData);
+    return true;
   } catch (e) {
     console.error('Failed to save to storage:', e);
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      alert('存储空间不足！请删除一些旧的菜谱或图片以释放空间。');
+    }
+    return false;
   }
 }
 
