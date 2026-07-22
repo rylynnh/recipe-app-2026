@@ -576,11 +576,11 @@ export function RecipeDetail() {
                   onDrop={handleEditCoverDrop}
                 >
                   <div
-                    className={`w-full py-12 rounded-input flex flex-col items-center justify-center gap-2 transition-colors border-2 border-dashed ${
+                    className={`w-full py-6 rounded-input flex flex-col items-center justify-center gap-1.5 transition-colors border-2 border-dashed ${
                       editCoverDragOver ? 'border-accent bg-accent/10' : 'border-transparent bg-bg-input hover:bg-bg-hover'
                     }`}
                   >
-                    <Camera className="w-8 h-8 text-text-tertiary" />
+                    <Camera className="w-6 h-6 text-text-tertiary" />
                     <span className="text-sm text-text-tertiary">
                       {editCoverDragOver ? '松开以上传封面' : '点击或拖拽图片上传封面'}
                     </span>

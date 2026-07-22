@@ -97,7 +97,7 @@ export function parsePastedText(text: string): {
   let hasExplicitSection = false;
 
   // Main section headers
-  const ingredientHeader = /^[\s]*[【\[]?\s*(食材|材料|配料|主料|辅料|所需食材|你需要|准备)[】\]]?\s*[:：]?\s*$/i;
+  const ingredientHeader = /^[\s]*[【\[]?\s*(食材清单|材料清单|所需食材|所需材料|原材料|食材|材料|配料|主料|辅料|用料|备料|你需要|准备)[】\]]?\s*(?:[:：]\s*(.*))?$/i;
   const stepHeader = /^[\s]*[【\[]?\s*(步骤|做法|制作|烹饪方法|操作|制作步骤|烹饪步骤|制作方法|操作流程)[】\]]?\s*[:：]?\s*$/i;
   const numberedStep = /^[\s]*(\d+[\.\、\)\s]|[一二三四五六七八九十]+[\.\、]\s*|第[一二三四五六七八九十\d]+步)/;
   // Note section header: 备注/小贴士/tips etc. (optionally followed by colon and inline content)
@@ -139,7 +139,7 @@ export function parsePastedText(text: string): {
 
   // Parse inline ingredients from text after a group header colon
   // e.g., "配菜：黄豆芽 小油菜 大葱末 蒜末" → ["黄豆芽", "小油菜", "大葱末", "蒜末"]
-  const parseInlineIngredients = (text: string, group: string): { name: string; amount: number; unit: string; group?: string }[] => {
+  const parseInlineIngredients = (text: string, group?: string): { name: string; amount: number; unit: string; group?: string }[] => {
     const trimmed = text.trim();
     if (!trimmed) return [];
 
@@ -268,11 +268,17 @@ export function parsePastedText(text: string): {
     }
 
     // Check for main ingredient section header
-    if (ingredientHeader.test(trimmed) || trimmed.match(/^(食材|材料|配料|主料|辅料|所需食材)\s*[:：]?\s*$/)) {
+    const ingHeaderMatch = trimmed.match(ingredientHeader);
+    if (ingHeaderMatch) {
       inIngredients = true;
       inSteps = false;
       hasExplicitSection = true;
       currentGroup = undefined;
+      const inlineContent = (ingHeaderMatch[2] || '').trim();
+      if (inlineContent) {
+        const inlineIngs = parseInlineIngredients(inlineContent, undefined);
+        if (inlineIngs.length > 0) ingredients.push(...inlineIngs);
+      }
       continue;
     }
 

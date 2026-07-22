@@ -599,11 +599,11 @@ export function AddRecipe() {
                 onDrop={handleCoverDrop}
               >
                 <div
-                  className={`w-full py-12 rounded-input flex flex-col items-center justify-center gap-2 transition-colors border-2 border-dashed ${
+                  className={`w-full py-6 rounded-input flex flex-col items-center justify-center gap-1.5 transition-colors border-2 border-dashed ${
                     coverDragOver ? 'border-accent bg-accent/10' : 'border-transparent bg-bg-input hover:bg-bg-hover'
                   }`}
                 >
-                  <Camera className="w-8 h-8 text-text-tertiary" />
+                  <Camera className="w-6 h-6 text-text-tertiary" />
                   <span className="text-sm text-text-tertiary">
                     {coverDragOver ? '松开以上传封面' : '点击或拖拽图片上传封面'}
                   </span>
@@ -686,14 +686,14 @@ export function AddRecipe() {
           {showImageOCR && (
             <div className="card p-4">
               <label
-                className={`flex flex-col items-center justify-center w-full py-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                className={`flex flex-col items-center justify-center w-full py-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
                   ocrDragOver ? 'border-accent bg-accent/10' : 'border-divider hover:border-accent/50'
                 }`}
                 onDragOver={(e) => { e.preventDefault(); setOcrDragOver(true); }}
                 onDragLeave={() => setOcrDragOver(false)}
                 onDrop={handleOcrDrop}
               >
-                <Camera className="w-7 h-7 text-secondary mb-2" />
+                <Camera className="w-6 h-6 text-secondary mb-1.5" />
                 <span className="text-sm text-secondary">
                   {ocrDragOver ? '松开以添加截图' : '点击选择或拖拽截图到此处'}
                 </span>
