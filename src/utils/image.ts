@@ -42,3 +42,9 @@ export function getImageSizeInBytes(dataUrl: string): number {
   const base64Data = dataUrl.split(',')[1];
   return Math.round((base64Data.length * 3) / 4);
 }
+
+// 从拖拽事件中提取图片文件（过滤掉非图片类型）
+export function getDroppedImageFiles(dataTransfer: DataTransfer | null): File[] {
+  const files = Array.from(dataTransfer?.files || []);
+  return files.filter((f) => f.type.startsWith('image/'));
+}

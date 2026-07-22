@@ -9,7 +9,7 @@ import { NutritionCard } from '../../components/NutritionCard';
 import { TimerButton } from '../../components/TimerButton';
 import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDurationInText } from '../../utils/nutrition';
 import { generateId } from '../../utils/parser';
-import { compressImage } from '../../utils/image';
+import { compressImage, getDroppedImageFiles } from '../../utils/image';
 
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +32,7 @@ export function RecipeDetail() {
   const [editIngredients, setEditIngredients] = useState<{ id: string; name: string; amount: number; unit: string; group?: string }[]>([]);
   const [editSteps, setEditSteps] = useState<{ id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; image?: string }[]>([]);
   const [editNote, setEditNote] = useState('');
+  const [editCoverDragOver, setEditCoverDragOver] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -389,9 +390,7 @@ export function RecipeDetail() {
     );
   };
 
-  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processEditCoverFile = async (file: File) => {
     try {
       const compressedDataUrl = await compressImage(file, 800, 0.8);
       setEditImage(compressedDataUrl);
@@ -403,6 +402,19 @@ export function RecipeDetail() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processEditCoverFile(file);
+  };
+
+  const handleEditCoverDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setEditCoverDragOver(false);
+    const files = getDroppedImageFiles(e.dataTransfer);
+    if (files.length > 0) processEditCoverFile(files[0]);
   };
 
   const removeEditImage = () => {
@@ -557,10 +569,21 @@ export function RecipeDetail() {
                   </div>
                 </div>
               ) : (
-                <label className="block w-full cursor-pointer">
-                  <div className="w-full py-12 bg-bg-input rounded-input flex flex-col items-center justify-center gap-2 hover:bg-bg-hover transition-colors">
+                <label
+                  className="block w-full cursor-pointer"
+                  onDragOver={(e) => { e.preventDefault(); setEditCoverDragOver(true); }}
+                  onDragLeave={() => setEditCoverDragOver(false)}
+                  onDrop={handleEditCoverDrop}
+                >
+                  <div
+                    className={`w-full py-12 rounded-input flex flex-col items-center justify-center gap-2 transition-colors border-2 border-dashed ${
+                      editCoverDragOver ? 'border-accent bg-accent/10' : 'border-transparent bg-bg-input hover:bg-bg-hover'
+                    }`}
+                  >
                     <Camera className="w-8 h-8 text-text-tertiary" />
-                    <span className="text-sm text-text-tertiary">点击上传封面图片</span>
+                    <span className="text-sm text-text-tertiary">
+                      {editCoverDragOver ? '松开以上传封面' : '点击或拖拽图片上传封面'}
+                    </span>
                   </div>
                   <input
                     type="file"

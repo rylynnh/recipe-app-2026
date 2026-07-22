@@ -6,7 +6,7 @@ import { useFoodItemsStore } from '../../store/foodItems';
 import { detectDurationInText, parsePastedText } from '../../utils/nutrition';
 import { extractTextFromImages } from '../../utils/ocr';
 import { generateId } from '../../utils/parser';
-import { compressImage } from '../../utils/image';
+import { compressImage, getDroppedImageFiles } from '../../utils/image';
 
 interface ParsedStep {
   content: string;
@@ -50,6 +50,8 @@ export function AddRecipe() {
   const [extraText, setExtraText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [ocrProgress, setOcrProgress] = useState('');
+  const [coverDragOver, setCoverDragOver] = useState(false);
+  const [ocrDragOver, setOcrDragOver] = useState(false);
 
   // Step image refs
   const stepImageInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -81,8 +83,7 @@ export function AddRecipe() {
   };
 
   // --- Image OCR handlers ---
-  const handleImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = Array.from(e.target.files || []);
+  const addOcrFiles = (newFiles: File[]) => {
     if (newFiles.length === 0) return;
     setImageFiles((prev) => [...prev, ...newFiles]);
     const newPreviews: string[] = [];
@@ -97,7 +98,20 @@ export function AddRecipe() {
       reader.readAsDataURL(file);
     });
     setOcrText('');
+  };
+
+  const handleImageFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newFiles = Array.from(e.target.files || []);
+    addOcrFiles(newFiles);
+    setOcrText('');
     e.target.value = '';
+  };
+
+  const handleOcrDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setOcrDragOver(false);
+    const files = getDroppedImageFiles(e.dataTransfer);
+    if (files.length > 0) addOcrFiles(files);
   };
 
   const removeImage = (index: number) => {
@@ -142,9 +156,7 @@ export function AddRecipe() {
   };
 
   // --- Cover image upload ---
-  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processCoverFile = async (file: File) => {
     try {
       const compressedDataUrl = await compressImage(file, 800, 0.8);
       setCoverImage(compressedDataUrl);
@@ -154,6 +166,19 @@ export function AddRecipe() {
       reader.onload = (event) => setCoverImage(event.target?.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processCoverFile(file);
+  };
+
+  const handleCoverDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setCoverDragOver(false);
+    const files = getDroppedImageFiles(e.dataTransfer);
+    if (files.length > 0) processCoverFile(files[0]);
   };
 
   const handleStepImageUpload = async (stepIndex: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -567,10 +592,21 @@ export function AddRecipe() {
                 </div>
               </div>
             ) : (
-              <label className="block w-full cursor-pointer">
-                <div className="w-full py-12 bg-bg-input rounded-input flex flex-col items-center justify-center gap-2 hover:bg-bg-hover transition-colors">
+              <label
+                className="block w-full cursor-pointer"
+                onDragOver={(e) => { e.preventDefault(); setCoverDragOver(true); }}
+                onDragLeave={() => setCoverDragOver(false)}
+                onDrop={handleCoverDrop}
+              >
+                <div
+                  className={`w-full py-12 rounded-input flex flex-col items-center justify-center gap-2 transition-colors border-2 border-dashed ${
+                    coverDragOver ? 'border-accent bg-accent/10' : 'border-transparent bg-bg-input hover:bg-bg-hover'
+                  }`}
+                >
                   <Camera className="w-8 h-8 text-text-tertiary" />
-                  <span className="text-sm text-text-tertiary">点击上传封面图片</span>
+                  <span className="text-sm text-text-tertiary">
+                    {coverDragOver ? '松开以上传封面' : '点击或拖拽图片上传封面'}
+                  </span>
                 </div>
                 <input
                   type="file"
@@ -649,9 +685,18 @@ export function AddRecipe() {
           {/* Image OCR section (expandable) */}
           {showImageOCR && (
             <div className="card p-4">
-              <label className="flex flex-col items-center justify-center w-full py-6 border-2 border-dashed border-divider rounded-lg cursor-pointer hover:border-accent/50 transition-colors">
+              <label
+                className={`flex flex-col items-center justify-center w-full py-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                  ocrDragOver ? 'border-accent bg-accent/10' : 'border-divider hover:border-accent/50'
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setOcrDragOver(true); }}
+                onDragLeave={() => setOcrDragOver(false)}
+                onDrop={handleOcrDrop}
+              >
                 <Camera className="w-7 h-7 text-secondary mb-2" />
-                <span className="text-sm text-secondary">点击选择截图</span>
+                <span className="text-sm text-secondary">
+                  {ocrDragOver ? '松开以添加截图' : '点击选择或拖拽截图到此处'}
+                </span>
                 <input
                   type="file"
                   accept="image/*"
