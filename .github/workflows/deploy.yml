@@ -32,3 +32,24 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: ./
+
+      - name: Configure Tencent Cloud COS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.TENCENT_SECRET_ID }}
+          aws-secret-access-key: ${{ secrets.TENCENT_SECRET_KEY }}
+          aws-region: ${{ secrets.TENCENT_COS_REGION }}
+
+      - name: Deploy to Tencent Cloud COS
+        env:
+          TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+          TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+        run: |
+          aws s3 sync dist/ "s3://${TENCENT_COS_BUCKET}" \
+            --endpoint-url "https://cos.${TENCENT_COS_REGION}.myqcloud.com" \
+            --delete \
+            --cache-control "max-age=31536000,immutable" \
+            --exclude "index.html"
+          aws s3 cp dist/index.html "s3://${TENCENT_COS_BUCKET}/index.html" \
+            --endpoint-url "https://cos.${TENCENT_COS_REGION}.myqcloud.com" \
+            --cache-control "no-cache"

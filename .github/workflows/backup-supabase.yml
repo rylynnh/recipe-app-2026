@@ -1,0 +1,38 @@
+name: Backup Supabase to Tencent COS
+
+on:
+  schedule:
+    # 每天北京时间 02:00 执行（对应 UTC 18:00）
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Tencent Cloud COS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.TENCENT_SECRET_ID }}
+          aws-secret-access-key: ${{ secrets.TENCENT_SECRET_KEY }}
+          aws-region: ${{ secrets.TENCENT_COS_REGION }}
+
+      - name: Backup Supabase data to COS
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
+          TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
+        run: node scripts/backup-supabase.mjs
