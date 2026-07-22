@@ -47,6 +47,8 @@ jobs:
           export AWS_DEFAULT_REGION="$REGION"
           ENDPOINT="https://cos.${REGION}.myqcloud.com"
           echo "COS endpoint: ${ENDPOINT}"
+          # Tencent COS requires virtual-hosted-style (bucket subdomain) addressing
+          aws configure set default.s3.addressing_style virtual
           aws s3 sync dist/ "s3://${BUCKET}" \
             --endpoint-url "${ENDPOINT}" \
             --delete \
