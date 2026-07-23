@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { Recipe, TodoItem, FoodItem, UnitConversion, ReviewItem } from '../types';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS } from '../utils/storage';
+import { uploadRecipeImage, deleteRecipeImage, isCloudImageUrl } from './supabaseStorage';
 
 // ============ Load (Supabase -> merge into localStorage) ============
 
@@ -74,10 +75,28 @@ export async function loadAllFromSupabase() {
  *     ADD COLUMN IF NOT EXISTS favorited boolean DEFAULT false;
  */
 export async function syncRecipeToSupabase(recipe: Recipe) {
+  let imageUrl = recipe.image;
+
+  if (imageUrl && !isCloudImageUrl(imageUrl)) {
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const uploadedUrl = await uploadRecipeImage(blob, recipe.id);
+      if (uploadedUrl) {
+        imageUrl = uploadedUrl;
+        console.log('Image uploaded to Supabase Storage:', imageUrl);
+      } else {
+        console.warn('Failed to upload image, keeping base64');
+      }
+    } catch (e) {
+      console.error('Image upload error:', e);
+    }
+  }
+
   const baseRow = {
     id: recipe.id,
     title: recipe.title,
-    image: recipe.image ?? null,
+    image: imageUrl ?? null,
     category: recipe.category,
     category_id: recipe.categoryId,
     base_servings: recipe.baseServings,
@@ -99,12 +118,10 @@ export async function syncRecipeToSupabase(recipe: Recipe) {
   };
 
   try {
-    // 先尝试完整写入（需要数据库已添加新列）
     const { error } = await supabase.from('recipes').upsert(fullRow);
     if (error) {
-      // 如果是因为列不存在（PGRST204），降级为基础字段写入
       if (error.code === 'PGRST204' || error.message?.includes('column')) {
-        console.warn('Supabase: 部分列不存在，降级为基础字段同步。请在 Supabase 中运行 ALTER TABLE 添加 structure_tag / main_ingredient / favorited 列。');
+        console.warn('Supabase: 部分列不存在，降级为基础字段同步。');
         const { error: fallbackError } = await supabase.from('recipes').upsert(baseRow);
         if (fallbackError) {
           console.error('Supabase fallback sync error:', fallbackError);
@@ -120,6 +137,10 @@ export async function syncRecipeToSupabase(recipe: Recipe) {
 
 export async function deleteRecipeFromSupabase(id: string) {
   try {
+    const { data: recipe } = await supabase.from('recipes').select('image').eq('id', id).single();
+    if (recipe?.image && isCloudImageUrl(recipe.image)) {
+      await deleteRecipeImage(recipe.image);
+    }
     await supabase.from('recipes').delete().eq('id', id);
   } catch (e) {
     console.error('Failed to delete recipe from Supabase:', e);
