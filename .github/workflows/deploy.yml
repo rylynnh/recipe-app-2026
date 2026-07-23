@@ -33,27 +33,3 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           working-directory: ./
-
-      - name: Deploy to Tencent Cloud COS
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TENCENT_SECRET_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.TENCENT_SECRET_KEY }}
-          TENCENT_COS_REGION: ${{ secrets.TENCENT_COS_REGION }}
-          TENCENT_COS_BUCKET: ${{ secrets.TENCENT_COS_BUCKET }}
-        run: |
-          # Strip surrounding quotes / whitespace that may have been pasted into GitHub Secrets
-          REGION=$(echo "$TENCENT_COS_REGION" | sed "s/^[[:space:]\\\"']*//;s/[[:space:]\\\"']*$//")
-          BUCKET=$(echo "$TENCENT_COS_BUCKET" | sed "s/^[[:space:]\\\"']*//;s/[[:space:]\\\"']*$//")
-          export AWS_DEFAULT_REGION="$REGION"
-          ENDPOINT="https://cos.${REGION}.myqcloud.com"
-          echo "COS endpoint: ${ENDPOINT}"
-          # Tencent COS requires virtual-hosted-style (bucket subdomain) addressing
-          aws configure set default.s3.addressing_style virtual
-          aws s3 sync dist/ "s3://${BUCKET}" \
-            --endpoint-url "${ENDPOINT}" \
-            --delete \
-            --cache-control "max-age=31536000,immutable" \
-            --exclude "index.html"
-          aws s3 cp dist/index.html "s3://${BUCKET}/index.html" \
-            --endpoint-url "${ENDPOINT}" \
-            --cache-control "no-cache"
