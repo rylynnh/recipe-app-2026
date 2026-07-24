@@ -1,13 +1,13 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Grid3X3, ListTodo, User } from 'lucide-react';
+import { House, Grid2X2, ListTodo, User } from 'lucide-react';
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const tabs = [
-    { id: '/', label: '首页', icon: Home },
-    { id: '/category', label: '分类', icon: Grid3X3 },
+    { id: '/', label: '首页', icon: House },
+    { id: '/category', label: '分类', icon: Grid2X2 },
     { id: '/todo', label: '待办', icon: ListTodo },
     { id: '/mine', label: '我的', icon: User },
   ];

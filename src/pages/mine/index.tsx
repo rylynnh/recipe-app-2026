@@ -231,14 +231,15 @@ export function Mine() {
           })}
         </div>
 
-        <button
-          onClick={() => setListView('recent')}
-          className="w-full card mb-5 text-left hover:bg-divider/10 transition-colors"
-        >
-          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
+        <div className="w-full card mb-5">
+          <button
+            onClick={() => setListView('recent')}
+            className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-divider/10 transition-colors"
+            style={{ borderBottom: '0.5px solid var(--color-divider)' }}
+          >
             <h3 className="font-display text-[16px] font-medium text-primary">最近更新</h3>
             <ChevronRight className="w-4 h-4 text-secondary/40 flex-shrink-0" />
-          </div>
+          </button>
           {recentRecipes.length === 0 ? (
             <div className="p-8 text-center text-secondary text-[14px]">暂无菜谱</div>
           ) : (
@@ -246,11 +247,8 @@ export function Mine() {
               {recentRecipes.map((recipe) => (
                 <button
                   key={recipe.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigate(`/recipe/${recipe.id}`);
-                  }}
-                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-background/50 transition-colors"
+                  onClick={() => navigate(`/recipe/${recipe.id}`)}
+                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-divider/10 transition-colors text-left"
                 >
                   <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: '#EAE6DE' }}>
                     {recipe.image ? (
@@ -271,7 +269,7 @@ export function Mine() {
               ))}
             </div>
           )}
-        </button>
+        </div>
 
         <div className="card mb-6">
           <div className="px-5 py-4" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
