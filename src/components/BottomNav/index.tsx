@@ -1,13 +1,21 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { House, Grid2X2, ListTodo, User } from 'lucide-react';
+import { LayoutGrid, ListTodo, User } from 'lucide-react';
+
+function HomeIcon({ className = '', strokeWidth = 1.8 }: { className?: string; strokeWidth?: number }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
 
 export function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
 
   const tabs = [
-    { id: '/', label: '首页', icon: House },
-    { id: '/category', label: '分类', icon: Grid2X2 },
+    { id: '/', label: '首页', icon: HomeIcon },
+    { id: '/category', label: '分类', icon: LayoutGrid },
     { id: '/todo', label: '待办', icon: ListTodo },
     { id: '/mine', label: '我的', icon: User },
   ];

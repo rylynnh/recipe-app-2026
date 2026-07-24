@@ -280,7 +280,7 @@ export function Mine() {
               <button
                 key={tool.label}
                 onClick={() => navigate(tool.path)}
-                className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-background/50 transition-colors"
+                className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-divider/10 transition-colors"
               >
                 <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--color-accent-tint)' }}>
                   <tool.icon className="w-4 h-4 text-accent" />
