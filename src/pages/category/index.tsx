@@ -31,7 +31,7 @@ export function Category() {
     const usedIngredients = new Set(
       categoryRecipes.flatMap((r) => r.mainIngredient)
     );
-    if (usedIngredients.size === 0) return ingredientTags;
+    if (usedIngredients.size === 0) return [];
     return ingredientTags.filter((tag) => usedIngredients.has(tag.name));
   }, [selectedStructure, recipes]);
 
