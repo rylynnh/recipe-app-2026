@@ -26,8 +26,13 @@ function normalizeRecipes(recipes: any[]): Recipe[] {
   return recipes.map(normalizeRecipe);
 }
 
+interface DeletedRecipe extends Recipe {
+  deletedAt: number;
+}
+
 interface RecipesStore {
   recipes: Recipe[];
+  deletedRecipes: DeletedRecipe[];
   reviewItems: ReviewItem[];
   searchHistory: string[];
   initialized: boolean;
@@ -35,6 +40,9 @@ interface RecipesStore {
   addRecipe: (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateRecipe: (id: string, updates: Partial<Recipe>) => void;
   deleteRecipe: (id: string) => void;
+  restoreRecipe: (id: string) => void;
+  permanentlyDeleteRecipe: (id: string) => void;
+  clearAllDeletedRecipes: () => void;
   clearAllRecipes: () => void;
   addReviewItem: (item: Omit<ReviewItem, 'id' | 'createdAt'>) => void;
   removeReviewItem: (id: string) => void;
@@ -54,6 +62,7 @@ interface RecipesStore {
 
 export const useRecipesStore = create<RecipesStore>((set, get) => ({
   recipes: normalizeRecipes(loadFromStorage<Recipe[]>(STORAGE_KEYS.RECIPES, mockRecipes)),
+  deletedRecipes: loadFromStorage<DeletedRecipe[]>(STORAGE_KEYS.DELETED_RECIPES, []),
   reviewItems: loadFromStorage<ReviewItem[]>(STORAGE_KEYS.REVIEW_ITEMS, []),
   searchHistory: loadFromStorage<string[]>(STORAGE_KEYS.SEARCH_HISTORY, []),
   initialized: false,
@@ -140,11 +149,50 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
 
   deleteRecipe: (id) => {
     set((state) => {
-      const updated = state.recipes.filter((r) => r.id !== id);
-      saveToStorage(STORAGE_KEYS.RECIPES, updated);
-      return { recipes: updated };
+      const recipeToDelete = state.recipes.find((r) => r.id === id);
+      if (!recipeToDelete) return state;
+
+      const updatedRecipes = state.recipes.filter((r) => r.id !== id);
+      const deletedRecipe: DeletedRecipe = {
+        ...recipeToDelete,
+        deletedAt: Date.now(),
+      };
+      const updatedDeletedRecipes = [...state.deletedRecipes, deletedRecipe].slice(-50);
+
+      saveToStorage(STORAGE_KEYS.RECIPES, updatedRecipes);
+      saveToStorage(STORAGE_KEYS.DELETED_RECIPES, updatedDeletedRecipes);
+      return { recipes: updatedRecipes, deletedRecipes: updatedDeletedRecipes };
     });
     deleteRecipeFromSupabase(id);
+  },
+
+  restoreRecipe: (id) => {
+    set((state) => {
+      const deletedRecipe = state.deletedRecipes.find((r) => r.id === id);
+      if (!deletedRecipe) return state;
+
+      const updatedDeletedRecipes = state.deletedRecipes.filter((r) => r.id !== id);
+      const updatedRecipes = [...state.recipes, { ...deletedRecipe }];
+
+      saveToStorage(STORAGE_KEYS.RECIPES, updatedRecipes);
+      saveToStorage(STORAGE_KEYS.DELETED_RECIPES, updatedDeletedRecipes);
+
+      syncRecipeToSupabase(deletedRecipe);
+      return { recipes: updatedRecipes, deletedRecipes: updatedDeletedRecipes };
+    });
+  },
+
+  permanentlyDeleteRecipe: (id) => {
+    set((state) => {
+      const updated = state.deletedRecipes.filter((r) => r.id !== id);
+      saveToStorage(STORAGE_KEYS.DELETED_RECIPES, updated);
+      return { deletedRecipes: updated };
+    });
+  },
+
+  clearAllDeletedRecipes: () => {
+    saveToStorage(STORAGE_KEYS.DELETED_RECIPES, []);
+    set({ deletedRecipes: [] });
   },
 
   clearAllRecipes: () => {

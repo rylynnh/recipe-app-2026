@@ -1,5 +1,6 @@
 const STORAGE_KEYS = {
   RECIPES: 'recipe_app_recipes',
+  DELETED_RECIPES: 'recipe_app_deleted_recipes',
   TODOS: 'recipe_app_todos',
   FOOD_ITEMS: 'recipe_app_food_items',
   REVIEW_ITEMS: 'recipe_app_review_items',

@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, Clock, ChevronRight, Database, Scale, Settings, Heart, ArrowLeft } from 'lucide-react';
+import { Plus, BookOpen, Clock, ChevronRight, Database, Scale, Settings, Heart, ArrowLeft, Trash2, RotateCcw, Trash } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useTodosStore } from '../../store/todos';
 import { useFoodItemsStore } from '../../store/foodItems';
 
-type ListView = 'all' | 'month' | 'todos' | 'favorites' | null;
+type ListView = 'all' | 'month' | 'todos' | 'favorites' | 'deleted' | null;
 
 function formatDate(ts: number): string {
   const d = new Date(ts);
@@ -18,7 +18,7 @@ function formatDate(ts: number): string {
 
 export function Mine() {
   const navigate = useNavigate();
-  const { recipes, getFavoritedRecipes, toggleFavorite } = useRecipesStore();
+  const { recipes, getFavoritedRecipes, toggleFavorite, deletedRecipes, restoreRecipe, permanentlyDeleteRecipe, clearAllDeletedRecipes } = useRecipesStore();
   const { getPendingTodos, todos } = useTodosStore();
   const { foodItems } = useFoodItemsStore();
 
@@ -51,6 +51,7 @@ export function Mine() {
     month: { title: '本月新增', backLabel: '我的' },
     todos: { title: '待办中', backLabel: '我的' },
     favorites: { title: '我的收藏', backLabel: '我的' },
+    deleted: { title: '最近删除', backLabel: '我的' },
   };
 
   // Render list view
@@ -67,6 +68,8 @@ export function Mine() {
       showTodoList = true;
     } else if (listView === 'favorites') {
       listRecipes = favoritedRecipes;
+    } else if (listView === 'deleted') {
+      listRecipes = [...deletedRecipes].sort((a, b) => b.deletedAt - a.deletedAt);
     }
 
     return (
@@ -123,29 +126,68 @@ export function Mine() {
           ) : (
             <div className="space-y-3">
               {listRecipes.map((recipe) => (
-                <button
+                <div
                   key={recipe.id}
-                  onClick={() => navigate(`/recipe/${recipe.id}`)}
-                  className="w-full card p-4 flex items-center gap-4 hover:bg-divider/10 transition-colors text-left"
+                  className="card p-4"
                 >
-                  <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: '#EAE6DE' }}>
-                    {recipe.image ? (
-                      <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center p-1">
-                        <span className="font-display text-secondary text-xs text-center leading-snug line-clamp-2">{recipe.title}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display text-[15px] font-medium text-accent truncate">{recipe.title}</p>
-                    <p className="text-[11px] text-secondary/60 mt-0.5">
-                      {recipe.category} · {formatDate(recipe.createdAt)}
-                    </p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-secondary/40 flex-shrink-0" />
-                </button>
+                  <button
+                    onClick={() => listView !== 'deleted' && navigate(`/recipe/${recipe.id}`)}
+                    className={`w-full flex items-center gap-4 text-left ${listView === 'deleted' ? '' : 'hover:bg-divider/10 transition-colors'}`}
+                  >
+                    <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: '#EAE6DE' }}>
+                      {recipe.image ? (
+                        <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-1">
+                          <span className="font-display text-secondary text-xs text-center leading-snug line-clamp-2">{recipe.title}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-display text-[15px] font-medium text-accent truncate">{recipe.title}</p>
+                      <p className="text-[11px] text-secondary/60 mt-0.5">
+                        {recipe.category} · {formatDate(listView === 'deleted' ? (recipe as any).deletedAt : recipe.createdAt)}
+                      </p>
+                    </div>
+                    {listView !== 'deleted' && <ChevronRight className="w-4 h-4 text-secondary/40 flex-shrink-0" />}
+                  </button>
+                  {listView === 'deleted' && (
+                    <div className="flex gap-3 mt-3 pt-3" style={{ borderTop: '0.5px solid var(--color-divider)' }}>
+                      <button
+                        onClick={() => restoreRecipe(recipe.id)}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors text-[14px] font-medium"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        恢复
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm('确定要彻底删除这个菜谱吗？此操作无法撤销。')) {
+                            permanentlyDeleteRecipe(recipe.id);
+                          }
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors text-[14px] font-medium"
+                      >
+                        <Trash className="w-4 h-4" />
+                        彻底删除
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
+              {listView === 'deleted' && deletedRecipes.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm(`确定要清空所有已删除的菜谱吗？共 ${deletedRecipes.length} 项，此操作无法撤销。`)) {
+                      clearAllDeletedRecipes();
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3 text-secondary text-[14px] hover:text-red-500 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  清空最近删除
+                </button>
+              )}
             </div>
           )}
         </main>
@@ -159,6 +201,7 @@ export function Mine() {
     { label: '本月新增', value: thisMonthRecipes.length, icon: Plus, view: 'month' as ListView },
     { label: '待办中', value: pendingTodos.length, icon: Clock, view: 'todos' as ListView },
     { label: '已收藏', value: favoritedRecipes.length, icon: Heart, view: 'favorites' as ListView },
+    { label: '最近删除', value: deletedRecipes.length, icon: Trash2, view: 'deleted' as ListView },
   ];
 
   return (
@@ -177,8 +220,8 @@ export function Mine() {
           <span className="font-medium text-[15px]">添加菜谱</span>
         </button>
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {stats.map((stat) => {
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+          {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
               <button
