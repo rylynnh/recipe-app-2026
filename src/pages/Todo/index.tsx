@@ -1,11 +1,106 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Circle, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2 } from 'lucide-react';
 import { useTodosStore } from '../../store/todos';
 import { useRecipesStore } from '../../store/recipes';
 import Empty from '../../components/Empty';
 
 type TabType = 'pending' | 'completed';
+
+interface SwipeableItemProps {
+  children: React.ReactNode;
+  onDelete: () => void;
+}
+
+function SwipeableItem({ children, onDelete }: SwipeableItemProps) {
+  const [translateX, setTranslateX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startXRef = useRef(0);
+  const currentXRef = useRef(0);
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  const deleteWidth = 80;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    startXRef.current = e.touches[0].clientX;
+    currentXRef.current = translateX;
+    setIsDragging(true);
+  }, [translateX]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const diff = e.touches[0].clientX - startXRef.current;
+    let newTranslate = currentXRef.current + diff;
+    newTranslate = Math.max(-deleteWidth, Math.min(0, newTranslate));
+    setTranslateX(newTranslate);
+  }, [isDragging, deleteWidth]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    if (translateX < -deleteWidth / 2) {
+      setTranslateX(-deleteWidth);
+    } else {
+      setTranslateX(0);
+    }
+  }, [translateX, deleteWidth]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    startXRef.current = e.clientX;
+    currentXRef.current = translateX;
+    setIsDragging(true);
+  }, [translateX]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging) return;
+    const diff = e.clientX - startXRef.current;
+    let newTranslate = currentXRef.current + diff;
+    newTranslate = Math.max(-deleteWidth, Math.min(0, newTranslate));
+    setTranslateX(newTranslate);
+  }, [isDragging, deleteWidth]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    if (translateX < -deleteWidth / 2) {
+      setTranslateX(-deleteWidth);
+    } else {
+      setTranslateX(0);
+    }
+  }, [translateX, deleteWidth]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDragging) {
+      handleMouseUp();
+    }
+  }, [isDragging, handleMouseUp]);
+
+  return (
+    <div className="relative overflow-hidden rounded-card">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="absolute right-0 top-0 h-full w-[80px] flex items-center justify-center bg-red-500 text-white hover:bg-red-600 transition-colors"
+      >
+        <Trash2 className="w-5 h-5" />
+      </button>
+      <div
+        ref={itemRef}
+        className={`relative bg-card transition-transform ${isDragging ? '' : 'duration-200'}`}
+        style={{ transform: `translateX(${translateX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function Todo() {
   const [activeTab, setActiveTab] = useState<TabType>('pending');
@@ -62,44 +157,40 @@ export function Todo() {
             {currentTodos.map((todo) => {
               const recipe = getRecipeById(todo.recipeId);
               return (
-                <div
+                <SwipeableItem
                   key={todo.id}
-                  className="card p-4 flex items-center gap-4"
+                  onDelete={() => removeTodo(todo.id)}
                 >
-                  <button
-                    onClick={() => toggleTodo(todo.id)}
-                    className={`flex-shrink-0 transition-colors ${
-                      todo.isCompleted ? 'text-accent' : 'text-secondary hover:text-accent'
-                    }`}
-                  >
-                    {todo.isCompleted ? (
-                      <CheckCircle2 className="w-6 h-6" />
-                    ) : (
-                      <Circle className="w-6 h-6" />
-                    )}
-                  </button>
-                  <div
-                    className="flex-1 cursor-pointer"
-                    onClick={() => recipe && navigate(`/recipe/${recipe.id}`)}
-                  >
-                    <h3
-                      className={`font-display text-base ${
-                        todo.isCompleted ? 'text-secondary line-through' : 'text-primary'
+                  <div className="p-4 flex items-center gap-4">
+                    <button
+                      onClick={() => toggleTodo(todo.id)}
+                      className={`flex-shrink-0 transition-colors ${
+                        todo.isCompleted ? 'text-accent' : 'text-secondary hover:text-accent'
                       }`}
                     >
-                      {recipe?.title || '未知菜谱'}
-                    </h3>
-                    <p className="text-xs text-secondary">
-                      {recipe?.category}
-                    </p>
+                      {todo.isCompleted ? (
+                        <CheckCircle2 className="w-6 h-6" />
+                      ) : (
+                        <Circle className="w-6 h-6" />
+                      )}
+                    </button>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => recipe && navigate(`/recipe/${recipe.id}`)}
+                    >
+                      <h3
+                        className={`font-display text-base ${
+                          todo.isCompleted ? 'text-secondary line-through' : 'text-primary'
+                        }`}
+                      >
+                        {recipe?.title || '未知菜谱'}
+                      </h3>
+                      <p className="text-xs text-secondary">
+                        {recipe?.category}
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => removeTodo(todo.id)}
-                    className="p-2 text-secondary hover:text-danger transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </div>
+                </SwipeableItem>
               );
             })}
           </div>

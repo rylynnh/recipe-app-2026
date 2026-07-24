@@ -5,7 +5,7 @@ import { useRecipesStore } from '../../store/recipes';
 import { useTodosStore } from '../../store/todos';
 import { useFoodItemsStore } from '../../store/foodItems';
 
-type ListView = 'all' | 'month' | 'todos' | 'favorites' | 'deleted' | null;
+type ListView = 'all' | 'recent' | 'todos' | 'favorites' | 'deleted' | null;
 
 function formatDate(ts: number): string {
   const d = new Date(ts);
@@ -27,15 +27,6 @@ export function Mine() {
   const pendingTodos = getPendingTodos();
   const favoritedRecipes = getFavoritedRecipes();
 
-  const thisMonth = new Date().getMonth();
-  const thisYear = new Date().getFullYear();
-  const thisMonthRecipes = recipes.filter(
-    (r) => {
-      const date = new Date(r.createdAt);
-      return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
-    }
-  );
-
   const allRecipesSorted = [...recipes].sort((a, b) => b.createdAt - a.createdAt);
   const recentRecipes = [...recipes].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 3);
 
@@ -48,7 +39,7 @@ export function Mine() {
   // List view header config
   const listConfig: Record<string, { title: string; backLabel: string }> = {
     all: { title: '全部菜谱', backLabel: '我的' },
-    month: { title: '本月新增', backLabel: '我的' },
+    recent: { title: '最近更新', backLabel: '我的' },
     todos: { title: '待办中', backLabel: '我的' },
     favorites: { title: '我的收藏', backLabel: '我的' },
     deleted: { title: '最近删除', backLabel: '我的' },
@@ -62,8 +53,8 @@ export function Mine() {
 
     if (listView === 'all') {
       listRecipes = allRecipesSorted;
-    } else if (listView === 'month') {
-      listRecipes = thisMonthRecipes;
+    } else if (listView === 'recent') {
+      listRecipes = [...recipes].sort((a, b) => b.updatedAt - a.updatedAt);
     } else if (listView === 'todos') {
       showTodoList = true;
     } else if (listView === 'favorites') {
@@ -198,7 +189,6 @@ export function Mine() {
   // Main "我的" page
   const stats = [
     { label: '菜谱总数', value: recipes.length, icon: BookOpen, view: 'all' as ListView },
-    { label: '本月新增', value: thisMonthRecipes.length, icon: Plus, view: 'month' as ListView },
     { label: '待办中', value: pendingTodos.length, icon: Clock, view: 'todos' as ListView },
     { label: '已收藏', value: favoritedRecipes.length, icon: Heart, view: 'favorites' as ListView },
     { label: '最近删除', value: deletedRecipes.length, icon: Trash2, view: 'deleted' as ListView },
@@ -241,9 +231,13 @@ export function Mine() {
           })}
         </div>
 
-        <div className="card mb-5">
-          <div className="px-5 py-4" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
+        <button
+          onClick={() => setListView('recent')}
+          className="w-full card mb-5 text-left hover:bg-divider/10 transition-colors"
+        >
+          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
             <h3 className="font-display text-[16px] font-medium text-primary">最近更新</h3>
+            <ChevronRight className="w-4 h-4 text-secondary/40 flex-shrink-0" />
           </div>
           {recentRecipes.length === 0 ? (
             <div className="p-8 text-center text-secondary text-[14px]">暂无菜谱</div>
@@ -252,7 +246,10 @@ export function Mine() {
               {recentRecipes.map((recipe) => (
                 <button
                   key={recipe.id}
-                  onClick={() => navigate(`/recipe/${recipe.id}`)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/recipe/${recipe.id}`);
+                  }}
                   className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-background/50 transition-colors"
                 >
                   <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: '#EAE6DE' }}>
@@ -270,12 +267,11 @@ export function Mine() {
                       {recipe.category} · {formatDate(recipe.updatedAt)}
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-secondary/40 flex-shrink-0" />
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </button>
 
         <div className="card mb-6">
           <div className="px-5 py-4" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
