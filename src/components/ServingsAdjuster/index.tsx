@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 
 interface ServingsAdjusterProps {
@@ -7,75 +7,121 @@ interface ServingsAdjusterProps {
   onChange: (servings: number) => void;
 }
 
+const STEP = 0.1;
+const QUICK_MULTIPLIERS = [0.5, 1, 2];
+
+function formatMultiplier(value: number) {
+  return Number(value.toFixed(2)).toString();
+}
+
 export function ServingsAdjuster({ baseServings, currentServings, onChange }: ServingsAdjusterProps) {
   const multiplier = currentServings / baseServings;
-  const [inputValue, setInputValue] = useState(multiplier.toFixed(2));
+  const [inputValue, setInputValue] = useState(() => formatMultiplier(multiplier));
   const [isAnimating, setIsAnimating] = useState(false);
-  const prevValueRef = useRef(currentServings);
+  const [isEditing, setIsEditing] = useState(false);
+  const previousServings = useRef(currentServings);
 
   useEffect(() => {
-    if (prevValueRef.current !== currentServings) {
+    if (previousServings.current !== currentServings) {
       setIsAnimating(true);
-      setTimeout(() => setIsAnimating(false), 300);
+      const timer = window.setTimeout(() => setIsAnimating(false), 220);
+      previousServings.current = currentServings;
+      if (!isEditing) setInputValue(formatMultiplier(multiplier));
+      return () => window.clearTimeout(timer);
     }
-    prevValueRef.current = currentServings;
-    setInputValue(multiplier.toFixed(2));
-  }, [currentServings, multiplier]);
+  }, [currentServings, isEditing, multiplier]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (!isNaN(value) && value > 0) {
-      setInputValue(e.target.value);
-      onChange(value * baseServings);
+  const applyMultiplier = (value: number) => {
+    const nextMultiplier = Number.isFinite(value) && value > 0 ? value : multiplier;
+    setInputValue(formatMultiplier(nextMultiplier));
+    onChange(nextMultiplier * baseServings);
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = event.target.value;
+    // Keep temporary text such as "0" or "0." while the user is typing.
+    if (!/^\d*(?:\.\d*)?$/.test(nextValue)) return;
+    setInputValue(nextValue);
+
+    const parsed = Number(nextValue);
+    if (nextValue !== '' && Number.isFinite(parsed) && parsed > 0) {
+      onChange(parsed * baseServings);
     }
   };
 
-  const handleBlur = () => {
-    const value = parseFloat(inputValue);
-    if (isNaN(value) || value <= 0) {
-      setInputValue('1.00');
-      onChange(baseServings);
+  const commitInput = () => {
+    const parsed = Number(inputValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setInputValue(formatMultiplier(multiplier));
+      return;
     }
+    applyMultiplier(parsed);
   };
 
-  const handleDecrease = () => {
-    const newMultiplier = Math.max(0.5, multiplier - 0.5);
-    onChange(newMultiplier * baseServings);
-  };
-
-  const handleIncrease = () => {
-    onChange((multiplier + 0.5) * baseServings);
+  const nudgeMultiplier = (direction: -1 | 1) => {
+    const next = direction === -1 && multiplier <= STEP
+      ? multiplier / 2
+      : multiplier + direction * STEP;
+    applyMultiplier(Number(next.toFixed(6)));
   };
 
   return (
-    <div className="flex items-center justify-center gap-4">
-      <button
-        onClick={handleDecrease}
-        disabled={multiplier <= 0.5}
-        className="w-10 h-10 flex items-center justify-center rounded-full bg-background text-primary hover:bg-divider/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        <Minus className="w-5 h-5" />
-      </button>
-      <div className="text-center">
-        <input
-          type="number"
-          value={inputValue}
-          onChange={handleInputChange}
-          onBlur={handleBlur}
-          min="0.5"
-          step="0.5"
-          className={`w-24 text-center text-3xl font-mono-digit font-medium text-accent bg-transparent border-none outline-none transition-transform ${
-            isAnimating ? 'scale-110' : ''
-          }`}
-        />
-        <div className="text-xs text-secondary mt-1">倍</div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-center gap-5">
+        <button
+          type="button"
+          onClick={() => nudgeMultiplier(-1)}
+          aria-label="倍率减 0.1"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-primary transition-colors hover:bg-divider/50 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Minus className="h-5 w-5" />
+        </button>
+        <div className="min-w-[118px] text-center">
+          <label htmlFor="recipe-multiplier" className="sr-only">菜谱倍率</label>
+          <div className="flex items-baseline justify-center border-b border-divider pb-1 focus-within:border-accent">
+            <input
+              id="recipe-multiplier"
+              type="text"
+              inputMode="decimal"
+              value={inputValue}
+              onFocus={(event) => {
+                setIsEditing(true);
+                event.currentTarget.select();
+              }}
+              onChange={handleInputChange}
+              onBlur={() => {
+                setIsEditing(false);
+                commitInput();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+              }}
+              className={`w-[78px] bg-transparent text-center font-mono-digit text-3xl font-medium text-accent outline-none transition-transform ${isAnimating ? 'scale-105' : ''}`}
+            />
+            <span className="ml-1 text-sm text-secondary">×</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => nudgeMultiplier(1)}
+          aria-label="倍率加 0.1"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-primary transition-colors hover:bg-divider/50 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
       </div>
-      <button
-        onClick={handleIncrease}
-        className="w-10 h-10 flex items-center justify-center rounded-full bg-background text-primary hover:bg-divider/50 transition-colors"
-      >
-        <Plus className="w-5 h-5" />
-      </button>
+      <div className="flex justify-center gap-2" aria-label="常用倍率">
+        {QUICK_MULTIPLIERS.map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => applyMultiplier(value)}
+            className={`min-w-12 border px-3 py-1.5 text-[12px] transition-colors ${Math.abs(multiplier - value) < 0.001 ? 'border-accent bg-accent text-white' : 'border-divider text-secondary hover:border-accent/60 hover:text-primary'}`}
+          >
+            {value}×
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

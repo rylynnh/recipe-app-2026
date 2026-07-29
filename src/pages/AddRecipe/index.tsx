@@ -7,6 +7,7 @@ import { detectDurationInText, parsePastedText } from '../../utils/nutrition';
 import { extractTextFromImages } from '../../utils/ocr';
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
+import { CoverImageEditor } from '../../components/CoverImageEditor';
 
 interface ParsedStep {
   content: string;
@@ -158,7 +159,7 @@ export function AddRecipe() {
   // --- Cover image upload ---
   const processCoverFile = async (file: File) => {
     try {
-      const compressedDataUrl = await compressImage(file, 800, 0.8);
+      const compressedDataUrl = await compressImage(file, 1600, 0.85);
       setCoverImage(compressedDataUrl);
     } catch (error) {
       console.error('封面图片压缩失败:', error);
@@ -515,82 +516,14 @@ export function AddRecipe() {
                 </button>
               </div>
             ) : isCropping ? (
-              <div className="space-y-3">
-                <div 
-                  className="relative w-full rounded-lg overflow-hidden" 
-                  style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}
-                  onMouseMove={handleCropMouseMove}
-                  onMouseUp={handleCropMouseUp}
-                  onMouseLeave={handleCropMouseUp}
-                >
-                  <img
-                    ref={cropImageRef}
-                    src={coverImage}
-                    alt="裁剪预览"
-                    className="w-full h-full object-cover"
-                  />
-                  <div
-                    className="absolute border-2 border-accent bg-accent/20"
-                    style={{
-                      width: `${cropArea.width}px`,
-                      height: `${cropArea.height}px`,
-                      left: `${cropArea.x}px`,
-                      top: `${cropArea.y}px`,
-                      cursor: getCursorStyle(dragType) || 'move',
-                    }}
-                    onMouseDown={(e) => handleCropMouseDown(e, 'move')}
-                  >
-                    <div 
-                      className="absolute -top-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-nw-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-nw')}
-                    />
-                    <div 
-                      className="absolute -top-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-ne-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-ne')}
-                    />
-                    <div 
-                      className="absolute -bottom-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-sw-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-sw')}
-                    />
-                    <div 
-                      className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-se-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-se')}
-                    />
-                    <div 
-                      className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-n-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-n')}
-                    />
-                    <div 
-                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-s-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-s')}
-                    />
-                    <div 
-                      className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-w-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-w')}
-                    />
-                    <div 
-                      className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-e-resize"
-                      onMouseDown={(e) => handleCropMouseDown(e, 'resize-e')}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => cancelCrop()}
-                    className="flex-1 py-3 bg-bg-input text-text-secondary rounded-input flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    取消
-                  </button>
-                  <button
-                    onClick={() => applyCrop()}
-                    className="flex-1 py-3 bg-accent text-text-white rounded-input flex items-center justify-center gap-2"
-                  >
-                    <Check className="w-4 h-4" />
-                    确认裁剪
-                  </button>
-                </div>
-              </div>
+              <CoverImageEditor
+                image={coverImage}
+                onCancel={cancelCrop}
+                onConfirm={(nextImage) => {
+                  setCoverImage(nextImage);
+                  setIsCropping(false);
+                }}
+              />
             ) : (
               <label
                 className="block w-full cursor-pointer"
@@ -640,8 +573,8 @@ export function AddRecipe() {
             <label className="block text-sm font-medium text-primary mb-2">份量</label>
             <input
               type="number"
-              min="1"
-              max="20"
+              min="0.01"
+              step="any"
               value={baseServings}
               onChange={(e) => setBaseServings(Number(e.target.value))}
               className={inputClass}

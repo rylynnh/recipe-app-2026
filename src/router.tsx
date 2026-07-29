@@ -56,6 +56,14 @@ export const router = createHashRouter([
         path: 'settings',
         element: <Settings />,
       },
+      {
+        path: 'admin',
+        element: <Mine />,
+      },
+      {
+        path: '*',
+        element: <Home />,
+      },
     ],
   },
 ]);

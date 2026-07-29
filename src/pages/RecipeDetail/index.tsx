@@ -7,18 +7,19 @@ import { useFoodItemsStore } from '../../store/foodItems';
 import { ServingsAdjuster } from '../../components/ServingsAdjuster';
 import { NutritionCard } from '../../components/NutritionCard';
 import { TimerButton } from '../../components/TimerButton';
-import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDurationInText } from '../../utils/nutrition';
+import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDurationInText, detectMainIngredients } from '../../utils/nutrition';
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
 
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getRecipeById, updateRecipe, deleteRecipe, toggleFavorite } = useRecipesStore();
+  const { getRecipeById, updateRecipe, deleteRecipe, toggleFavorite, favoriteIds } = useRecipesStore();
   const { addTodo, getTodoByRecipeId, toggleTodo } = useTodosStore();
   const { foodItems, unitConversions, categories } = useFoodItemsStore();
 
   const recipe = getRecipeById(id || '');
+  const isFavorited = recipe ? favoriteIds.includes(recipe.id) : false;
   const [servings, setServings] = useState(recipe?.baseServings || 1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -32,6 +33,8 @@ export function RecipeDetail() {
   const [editIngredients, setEditIngredients] = useState<{ id: string; name: string; amount: number; unit: string; group?: string }[]>([]);
   const [editSteps, setEditSteps] = useState<{ id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; image?: string }[]>([]);
   const [editNote, setEditNote] = useState('');
+  const [editMainIngredients, setEditMainIngredients] = useState<string[]>([]);
+  const [editTagInput, setEditTagInput] = useState('');
   const [editCoverDragOver, setEditCoverDragOver] = useState(false);
   const [isCropping, setIsCropping] = useState(false);
   const [cropArea, setCropArea] = useState({ x: 0, y: 0, width: 0, height: 0 });
@@ -279,6 +282,8 @@ export function RecipeDetail() {
       setEditIngredients(recipe.ingredients.map(ing => ({ ...ing })));
       setEditSteps(recipe.steps.map(step => ({ ...step, detectedDurationSeconds: step.detectedDurationSeconds || 0 })));
       setEditNote(recipe.note || '');
+      setEditMainIngredients(recipe.mainIngredient);
+      setEditTagInput('');
       // Reset group selector
       setNewIngGroup('');
     }
@@ -294,6 +299,8 @@ export function RecipeDetail() {
 
   const scaledIngredients = scaleIngredients(recipe.ingredients, recipe.baseServings, servings);
   const nutrition = calculateRecipeNutrition(scaledIngredients, foodItems, unitConversions);
+  const detectedTagSuggestions = detectMainIngredients(editIngredients);
+  const visibleEditTags = Array.from(new Set([...detectedTagSuggestions, ...editMainIngredients]));
 
   const handleAddTodo = () => {
     if (todo) {
@@ -332,11 +339,13 @@ export function RecipeDetail() {
       title: editTitle,
       category: editCategory,
       categoryId: editCategoryId,
+      structureTag: editCategory,
       baseServings: editBaseServings,
       image: editImage,
       ingredients,
       steps,
       note: editNote || undefined,
+      mainIngredient: editMainIngredients,
     });
 
     setIsEditing(false);
@@ -419,15 +428,6 @@ export function RecipeDetail() {
 
   const removeEditImage = () => {
     setEditImage(undefined);
-  };
-
-  const sourceLabels: Record<string, string> = {
-    manual: '手动添加',
-    pasted_text: '粘贴文字',
-    screenshot: '截图导入',
-    link_xiaohongshu: '来自小红书',
-    link_xiachufang: '来自下厨房',
-    link_wechat: '来自公众号',
   };
 
   if (isEditing) {
@@ -615,13 +615,33 @@ export function RecipeDetail() {
               </select>
             </div>
 
+            {/* Tags */}
+            <div className="card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-primary">标签</label>
+                <span className="text-xs text-secondary">自动识别可修改</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {visibleEditTags.map((tag) => {
+                  const selected = editMainIngredients.includes(tag);
+                  if (!selected) return <button key={tag} type="button" onClick={() => setEditMainIngredients((current) => [...current, tag])} className="rounded-full px-3 py-1.5 text-xs transition-colors" style={{ border: '1px solid var(--color-divider)', color: 'var(--color-text-secondary)' }}>{tag}</button>;
+                  return <span key={tag} className="relative inline-flex rounded-full px-3 py-1.5 pr-6 text-xs" style={{ border: '1px solid var(--color-divider)', backgroundColor: 'var(--color-accent-tint)', color: 'var(--color-accent)' }}>{tag}<button type="button" aria-label={`删除标签 ${tag}`} onClick={() => setEditMainIngredients((current) => current.filter((item) => item !== tag))} className="absolute right-1 top-1 grid h-3.5 w-3.5 place-items-center rounded-full text-secondary hover:bg-background"><X className="h-3 w-3" strokeWidth={1.8} /></button></span>;
+                })}
+                {visibleEditTags.length === 0 && <span className="text-xs text-secondary">暂未识别到标签</span>}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <input value={editTagInput} onChange={(event) => setEditTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); const tag = editTagInput.trim(); if (tag && !editMainIngredients.includes(tag)) setEditMainIngredients((current) => [...current, tag]); setEditTagInput(''); } }} placeholder="手动添加标签" className="min-w-0 flex-1 rounded-input bg-background px-3 py-2 text-sm text-primary outline-none ring-1 ring-divider focus:ring-accent" />
+                <button type="button" onClick={() => { const tag = editTagInput.trim(); if (tag && !editMainIngredients.includes(tag)) setEditMainIngredients((current) => [...current, tag]); setEditTagInput(''); }} className="rounded-input border border-divider px-3 text-sm text-secondary">添加</button>
+              </div>
+            </div>
+
             {/* Servings */}
             <div className="card p-4">
               <label className="block text-sm font-medium text-primary mb-2">份量</label>
               <input
                 type="number"
-                min="1"
-                max="20"
+                min="0.01"
+                step="any"
                 value={editBaseServings}
                 onChange={(e) => setEditBaseServings(Number(e.target.value))}
                 className="w-full px-4 py-3 bg-background text-primary rounded-input focus:outline-none focus:ring-2 focus:ring-accent/50"
@@ -883,11 +903,11 @@ export function RecipeDetail() {
         <button
           onClick={() => toggleFavorite(recipe.id)}
           className={`p-2 hover:bg-divider/50 rounded-full transition-colors ${
-            recipe.favorited ? 'text-accent' : 'text-secondary'
+            isFavorited ? 'text-accent' : 'text-secondary'
           }`}
-          title={recipe.favorited ? '取消收藏' : '收藏'}
+          title={isFavorited ? '取消收藏' : '收藏'}
         >
-          <Heart className={`w-5 h-5 ${recipe.favorited ? 'fill-current' : ''}`} />
+          <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
         </button>
         <button
           onClick={handleAddTodo}
@@ -938,10 +958,6 @@ export function RecipeDetail() {
               {tag}
             </span>
           ))}
-          <span className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }}>
-            <span className="w-1 h-1 rounded-full bg-accent/40"></span>
-            {sourceLabels[recipe.sourceType]}
-          </span>
         </div>
 
         <div className="card mb-4 p-5">
@@ -1038,16 +1054,16 @@ export function RecipeDetail() {
           </div>
         </div>
 
-        <div className="mb-4">
-          <NutritionCard nutrition={nutrition.nutritionPer100g} />
-        </div>
-
         {recipe.note && (
-          <div className="card p-5">
+          <div className="card mb-4 p-5">
             <h3 className="font-display text-[16px] font-medium text-primary mb-2">备注</h3>
             <p className="text-secondary text-[14px] leading-relaxed" style={{ whiteSpace: 'pre-wrap' }}>{recipe.note}</p>
           </div>
         )}
+
+        <div className="mb-4">
+          <NutritionCard nutrition={nutrition.nutritionPer100g} />
+        </div>
       </main>
     </div>
   );

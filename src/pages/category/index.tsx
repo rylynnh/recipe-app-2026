@@ -1,14 +1,24 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { structureTags, ingredientTags } from '../../data/mock';
 import { useRecipesStore } from '../../store/recipes';
 import Empty from '../../components/Empty';
 
 export function Category() {
-  const [selectedStructure, setSelectedStructure] = useState('s1');
-  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
+  const [searchParams] = useSearchParams();
+  const [selectedStructure, setSelectedStructure] = useState(() => searchParams.get('category') === 'vegetable' ? 's3' : 's1');
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>(() => {
+    const ingredient = searchParams.get('ingredient');
+    return ingredient ? [ingredient] : [];
+  });
   const navigate = useNavigate();
   const { filterByStructure, filterByIngredient, recipes } = useRecipesStore();
+
+  useEffect(() => {
+    const ingredient = searchParams.get('ingredient');
+    setSelectedStructure(searchParams.get('category') === 'vegetable' ? 's3' : 's1');
+    setSelectedIngredients(ingredient ? [ingredient] : []);
+  }, [searchParams]);
 
   const handleStructureSelect = (tagId: string) => {
     setSelectedStructure(tagId);
@@ -53,7 +63,7 @@ export function Category() {
       <div className="flex h-[calc(100vh-61px)]">
         {/* Left sidebar */}
         <aside
-          className="flex-shrink-0 overflow-y-auto"
+          className="flex-shrink-0 overflow-y-auto pb-24"
           style={{ width: '88px', borderRight: '0.5px solid var(--color-divider)' }}
         >
           {structureTags.map((tag) => {
@@ -161,7 +171,7 @@ export function Category() {
                     <div className="flex-1 min-w-0 py-0.5">
                       <h3
                         className="font-display text-[16px] font-medium leading-snug mb-1.5 truncate transition-colors duration-200"
-                        style={{ color: 'var(--color-accent)' }}
+                        style={{ color: 'var(--color-text-primary)' }}
                       >
                         {recipe.title}
                       </h3>

@@ -26,6 +26,19 @@ function normalizeRecipes(recipes: any[]): Recipe[] {
   return recipes.map(normalizeRecipe);
 }
 
+function syncRecipeAndPersistCloudImage(recipe: Recipe) {
+  void syncRecipeToSupabase(recipe).then((cloudImageUrl) => {
+    if (!cloudImageUrl) return;
+    useRecipesStore.setState((state) => {
+      const recipes = state.recipes.map((item) =>
+        item.id === recipe.id ? { ...item, image: cloudImageUrl } : item
+      );
+      saveToStorage(STORAGE_KEYS.RECIPES, recipes);
+      return { recipes };
+    });
+  });
+}
+
 interface DeletedRecipe extends Recipe {
   deletedAt: number;
 }
@@ -34,6 +47,7 @@ interface RecipesStore {
   recipes: Recipe[];
   deletedRecipes: DeletedRecipe[];
   reviewItems: ReviewItem[];
+  favoriteIds: string[];
   searchHistory: string[];
   initialized: boolean;
   initFromSupabase: () => Promise<void>;
@@ -64,6 +78,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
   recipes: normalizeRecipes(loadFromStorage<Recipe[]>(STORAGE_KEYS.RECIPES, mockRecipes)),
   deletedRecipes: loadFromStorage<DeletedRecipe[]>(STORAGE_KEYS.DELETED_RECIPES, []),
   reviewItems: loadFromStorage<ReviewItem[]>(STORAGE_KEYS.REVIEW_ITEMS, []),
+  favoriteIds: loadFromStorage<string[]>(STORAGE_KEYS.FAVORITE_IDS, []),
   searchHistory: loadFromStorage<string[]>(STORAGE_KEYS.SEARCH_HISTORY, []),
   initialized: false,
 
@@ -78,7 +93,8 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
       const autoTags = detectMainIngredients(r.ingredients);
       const currentTags = r.mainIngredient || [];
       // Update if auto-detected tags differ from current
-      if (JSON.stringify(autoTags) !== JSON.stringify(currentTags)) {
+      const needsTagUpgrade = currentTags.length === 0 || currentTags.includes('素菜') || currentTags.length > 2;
+      if (needsTagUpgrade && JSON.stringify(autoTags) !== JSON.stringify(currentTags)) {
         needsSave = true;
         const updated = { ...r, mainIngredient: autoTags };
         syncRecipeToSupabase(updated);
@@ -115,7 +131,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
       saveToStorage(STORAGE_KEYS.RECIPES, updated);
       return { recipes: updated };
     });
-    syncRecipeToSupabase(newRecipe);
+    syncRecipeAndPersistCloudImage(newRecipe);
   },
 
   updateRecipe: (id, updates) => {
@@ -124,7 +140,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
       const mergedUpdates = { ...updates };
 
       // Auto-detect mainIngredient tags when ingredients are updated
-      if (updates.ingredients) {
+      if (updates.ingredients && !updates.mainIngredient) {
         const autoTags = detectMainIngredients(updates.ingredients);
         if (autoTags.length > 0) {
           mergedUpdates.mainIngredient = autoTags;
@@ -142,7 +158,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
       );
       saveToStorage(STORAGE_KEYS.RECIPES, updated);
       const updatedRecipe = updated.find((r) => r.id === id);
-      if (updatedRecipe) syncRecipeToSupabase(updatedRecipe);
+      if (updatedRecipe) syncRecipeAndPersistCloudImage(updatedRecipe);
       return { recipes: updated };
     });
   },
@@ -177,7 +193,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
       saveToStorage(STORAGE_KEYS.RECIPES, updatedRecipes);
       saveToStorage(STORAGE_KEYS.DELETED_RECIPES, updatedDeletedRecipes);
 
-      syncRecipeToSupabase(deletedRecipe);
+      syncRecipeAndPersistCloudImage(deletedRecipe);
       return { recipes: updatedRecipes, deletedRecipes: updatedDeletedRecipes };
     });
   },
@@ -263,7 +279,7 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
         const updatedReviews = state.reviewItems.filter((r) => r.id !== id);
         saveToStorage(STORAGE_KEYS.RECIPES, updatedRecipes);
         saveToStorage(STORAGE_KEYS.REVIEW_ITEMS, updatedReviews);
-        syncRecipeToSupabase(newRecipe);
+        syncRecipeAndPersistCloudImage(newRecipe);
         deleteReviewItemFromSupabase(id);
         return { recipes: updatedRecipes, reviewItems: updatedReviews };
       }
@@ -308,14 +324,28 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
     const { recipes } = get();
     const sorted = [...recipes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     if (!query.trim()) return sorted;
-    const lowerQuery = query.toLowerCase();
-    return sorted.filter(
-      (r) =>
-        r.title.toLowerCase().includes(lowerQuery) ||
-        r.structureTag.toLowerCase().includes(lowerQuery) ||
-        r.mainIngredient.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
-        r.ingredients.some((ing) => ing.name.toLowerCase().includes(lowerQuery))
-    );
+    const keywords = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return sorted
+      .map((recipe) => {
+        const title = recipe.title.toLowerCase();
+        const tags = [...recipe.mainIngredient, recipe.category, recipe.structureTag].join(' ').toLowerCase();
+        const ingredients = recipe.ingredients.map((ingredient) => ingredient.name).join(' ').toLowerCase();
+        const details = [recipe.note || '', ...recipe.steps.map((step) => step.content)].join(' ').toLowerCase();
+        let score = 0;
+
+        for (const keyword of keywords) {
+          if (title.includes(keyword)) score += 100;
+          else if (tags.includes(keyword)) score += 70;
+          else if (ingredients.includes(keyword)) score += 40;
+          else if (details.includes(keyword)) score += 10;
+          else return null;
+        }
+
+        return { recipe, score };
+      })
+      .filter((item): item is { recipe: Recipe; score: number } => item !== null)
+      .sort((a, b) => b.score - a.score || (b.recipe.updatedAt || 0) - (a.recipe.updatedAt || 0))
+      .map(({ recipe }) => recipe);
   },
 
   filterByStructure: (structureId) => {
@@ -339,19 +369,17 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
 
   toggleFavorite: (id) => {
     set((state) => {
-      const updated = state.recipes.map((r) =>
-        r.id === id ? { ...r, favorited: !r.favorited, updatedAt: Date.now() } : r
-      );
-      saveToStorage(STORAGE_KEYS.RECIPES, updated);
-      const updatedRecipe = updated.find((r) => r.id === id);
-      if (updatedRecipe) syncRecipeToSupabase(updatedRecipe);
-      return { recipes: updated };
+      const favoriteIds = state.favoriteIds.includes(id)
+        ? state.favoriteIds.filter((favoriteId) => favoriteId !== id)
+        : [...state.favoriteIds, id];
+      saveToStorage(STORAGE_KEYS.FAVORITE_IDS, favoriteIds);
+      return { favoriteIds };
     });
   },
 
   getFavoritedRecipes: () => {
-    const { recipes } = get();
-    return recipes.filter((r) => r.favorited);
+    const { recipes, favoriteIds } = get();
+    return recipes.filter((r) => favoriteIds.includes(r.id));
   },
 
   getReviewCount: () => {

@@ -103,7 +103,7 @@ export function Mine() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-display text-[15px] font-medium text-accent truncate">{recipe.title}</p>
+                        <p className="font-display text-[15px] font-medium text-primary truncate">{recipe.title}</p>
                         <p className="text-[12px] text-secondary mt-0.5">{recipe.category}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-secondary/40 flex-shrink-0" />
@@ -135,7 +135,7 @@ export function Mine() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-display text-[15px] font-medium text-accent truncate">{recipe.title}</p>
+                      <p className="font-display text-[15px] font-medium text-primary truncate">{recipe.title}</p>
                       <p className="text-[11px] text-secondary/60 mt-0.5">
                         {recipe.category} · {formatDate(listView === 'deleted' ? (recipe as any).deletedAt : recipe.createdAt)}
                       </p>
@@ -260,7 +260,7 @@ export function Mine() {
                     )}
                   </div>
                   <div className="flex-1 text-left min-w-0">
-                    <p className="font-display text-[15px] font-medium text-accent truncate">{recipe.title}</p>
+                    <p className="font-display text-[15px] font-medium text-primary truncate">{recipe.title}</p>
                     <p className="text-[11px] text-secondary/60 mt-0.5">
                       {recipe.category} · {formatDate(recipe.updatedAt)}
                     </p>

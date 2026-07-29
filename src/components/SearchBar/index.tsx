@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Trash2 } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
-import { useFoodItemsStore } from '../../store/foodItems';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -16,7 +15,6 @@ export function SearchBar({ onSearch, currentQuery = '' }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { searchRecipes, searchHistory, addSearchHistory, clearSearchHistory } = useRecipesStore();
-  const { foodItems } = useFoodItemsStore();
 
   useEffect(() => {
     setQuery(currentQuery);
@@ -51,7 +49,6 @@ export function SearchBar({ onSearch, currentQuery = '' }: SearchBarProps) {
   };
 
   const results = query ? searchRecipes(query) : [];
-  const isIngredientSearch = query && foodItems.some(f => f.name.includes(query));
 
   return (
     <div className="relative">
@@ -116,60 +113,31 @@ export function SearchBar({ onSearch, currentQuery = '' }: SearchBarProps) {
             </div>
           ) : (
             <div className="p-4 max-h-64 overflow-y-auto">
-              {isIngredientSearch && (
-                <div className="mb-3">
-                  <span className="text-xs text-secondary mb-2 block">食材反查</span>
-                  <div className="space-y-2">
-                    {results.slice(0, 3).map((recipe) => (
-                      <button
-                        key={recipe.id}
-                        onClick={() => handleRecipeClick(recipe.id)}
-                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-background rounded-lg transition-colors"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-divider/30 flex items-center justify-center">
-                          {recipe.image ? (
-                            <img src={recipe.image} alt="" className="w-full h-full object-cover rounded-lg" />
-                          ) : (
-                            <span className="text-xs text-secondary">{recipe.title[0]}</span>
-                          )}
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className="text-sm font-medium text-primary">{recipe.title}</p>
-                          <p className="text-xs text-secondary">{recipe.category}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+              {results.length === 0 ? (
+                <p className="text-sm text-secondary text-center py-4">未找到相关菜谱</p>
+              ) : (
+                <div className="space-y-2">
+                  {results.slice(0, 12).map((recipe) => (
+                    <button
+                      key={recipe.id}
+                      onClick={() => handleRecipeClick(recipe.id)}
+                      className="w-full flex items-center gap-3 px-3 py-2 hover:bg-background rounded-lg transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-divider/30 flex items-center justify-center">
+                        {recipe.image ? (
+                          <img src={recipe.image} alt="" className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <span className="text-xs text-secondary">{recipe.title[0]}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium text-primary">{recipe.title}</p>
+                        <p className="text-xs text-secondary">{recipe.category}</p>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               )}
-              <div>
-                <span className="text-xs text-secondary mb-2 block">菜谱结果</span>
-                {results.length === 0 ? (
-                  <p className="text-sm text-secondary text-center py-4">未找到相关菜谱</p>
-                ) : (
-                  <div className="space-y-2">
-                    {results.slice(0, 5).map((recipe) => (
-                      <button
-                        key={recipe.id}
-                        onClick={() => handleRecipeClick(recipe.id)}
-                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-background rounded-lg transition-colors"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-divider/30 flex items-center justify-center">
-                          {recipe.image ? (
-                            <img src={recipe.image} alt="" className="w-full h-full object-cover rounded-lg" />
-                          ) : (
-                            <span className="text-xs text-secondary">{recipe.title[0]}</span>
-                          )}
-                        </div>
-                        <div className="flex-1 text-left">
-                          <p className="text-sm font-medium text-primary">{recipe.title}</p>
-                          <p className="text-xs text-secondary">{recipe.category}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </div>

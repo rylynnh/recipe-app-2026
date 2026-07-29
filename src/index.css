@@ -6,13 +6,13 @@
    Design Tokens — single source of truth
    ═══════════════════════════════════════════════ */
 :root {
-  --color-bg: #F8F6F2;
-  --color-card: #FFFFFF;
-  --color-text-primary: #232323;
-  --color-text-secondary: #7C7C7C;
-  --color-divider: #E9E6DF;
-  --color-accent: #3E4B3C;
-  --color-accent-tint: #D9E0D8;
+  --color-bg: #F5F2EC;
+  --color-card: #FCFBF8;
+  --color-text-primary: #1C1C1B;
+  --color-text-secondary: #716E68;
+  --color-divider: #DED9D0;
+  --color-accent: #A68C62;
+  --color-accent-tint: #EEE6D8;
   --color-danger: #7A3B3B;
 
   --font-serif: "New York", Georgia, "Songti SC", serif;
@@ -32,6 +32,7 @@
   body {
     margin: 0;
     min-height: 100vh;
+    letter-spacing: 0.01em;
   }
 
   #root {
@@ -43,8 +44,7 @@
 
 @layer components {
   .card {
-    @apply bg-card rounded-card overflow-hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+    @apply bg-card overflow-hidden;
   }
 
   .divider {
@@ -52,15 +52,15 @@
   }
 
   .btn-primary {
-    @apply bg-accent text-white px-4 py-2.5 rounded-input font-medium hover:bg-accent/90 transition-colors;
+    @apply bg-accent text-white px-4 py-2.5 font-medium hover:bg-accent/90 transition-colors;
   }
 
   .btn-secondary {
-    @apply bg-background text-primary px-4 py-2.5 rounded-input font-medium hover:bg-divider/50 transition-colors;
+    @apply bg-background text-primary px-4 py-2.5 font-medium hover:bg-divider/50 transition-colors;
   }
 
   .input-field {
-    @apply w-full bg-background border border-divider rounded-input px-4 py-3 text-primary placeholder-secondary/60 focus:outline-none focus:border-accent/50 transition-colors;
+    @apply w-full bg-background border border-divider px-4 py-3 text-primary placeholder-secondary/60 focus:outline-none focus:border-accent/50 transition-colors;
   }
 
   .chip {

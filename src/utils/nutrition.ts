@@ -696,24 +696,31 @@ export function formatAmount(amount: number): string {
 // Auto-detect main ingredient tags from ingredient list
 // Returns an array of matched tags like ["牛肉", "海鲜"] or ["素菜"]
 const INGREDIENT_KEYWORDS: Record<string, string[]> = {
-  '海鲜': ['虾', '蟹', '鱼', '贝', '蛤', '蛏', '蚝', '牡蛎', '扇贝', '鲍鱼', '海参', '鱿鱼', '章鱼', '墨鱼', '海带', '紫菜', '海蜇', '龙虾', '螃蟹', '三文鱼', '金枪鱼', '鲈鱼', '草鱼', '鲤鱼', '带鱼', '黄鱼', '虾仁', '蟹肉', '鱼片', '海鲜', '生蚝', '花甲', '花蛤', '文蛤', '青口', '贻贝', '螺', '田螺', '海螺', '海米', '干贝', '瑶柱', '鳗鱼', '鲑鱼', '比目鱼', '石斑鱼', '多宝鱼', '武昌鱼', '鲫鱼', '泥鳅', '黄鳝', '甲鱼'],
+  // Fish and shrimp are first-class tags. Keep “海鲜” for other seafood such as shellfish and squid.
+  '鱼': ['鱼', '鱼片', '鱼柳', '鱼排', '鱼肉', '三文鱼', '金枪鱼', '鲈鱼', '草鱼', '鲤鱼', '带鱼', '黄鱼', '鳗鱼', '鲑鱼', '比目鱼', '石斑鱼', '多宝鱼', '武昌鱼', '鲫鱼', '泥鳅', '黄鳝', '甲鱼'],
+  '虾': ['虾', '虾仁', '基围虾', '河虾', '海虾', '大虾', '龙虾', '小龙虾'],
+  '海鲜': ['蟹', '贝', '蛤', '蛏', '蚝', '牡蛎', '扇贝', '鲍鱼', '海参', '鱿鱼', '章鱼', '墨鱼', '海带', '紫菜', '海蜇', '螃蟹', '蟹肉', '海鲜', '生蚝', '花甲', '花蛤', '文蛤', '青口', '贻贝', '螺', '田螺', '海螺', '海米', '干贝', '瑶柱'],
   '牛肉': ['牛', '牛肉', '牛排', '牛腩', '牛腱', '牛筋', '牛尾', '牛舌', '牛肚', '牛百叶'],
   '猪肉': ['猪', '猪肉', '排骨', '猪排', '猪蹄', '猪肚', '猪耳', '猪舌', '猪腰', '猪脑', '猪血', '五花肉', '里脊', '肉末', '肉馅', '培根', '火腿', '香肠', '腊肉', '叉烧', '猪大肠', '粉肠', '猪心', '猪肝', '肋排', '小排', '大排', '筒骨', '棒骨', '猪蹄髈'],
   '鸡肉': ['鸡', '鸡肉', '鸡翅', '鸡腿', '鸡胸', '鸡爪', '鸡胗', '鸡肝', '鸡心'],
   '羊肉': ['羊', '羊肉', '羊排', '羊腿', '羊蝎子', '羊肚', '羊杂', '羊脑', '羊蹄'],
   '鸭肉': ['鸭', '鸭肉', '鸭腿', '鸭胸', '鸭翅', '鸭血', '鸭肠', '鸭掌', '鸭舌', '鸭肝', '鹅', '鹅肉', '鹅肝'],
-  '蛋奶': ['鸡蛋', '鸭蛋', '鹌鹑蛋', '鹅蛋', '牛奶', '羊奶', '奶油', '黄油', '奶酪', '芝士', '酸奶', '鲜奶', '奶粉'],
+  '鸡蛋': ['鸡蛋', '鸭蛋', '鹌鹑蛋', '鹅蛋'],
+  '豆制品': ['豆腐', '豆干', '豆皮', '腐竹', '豆浆', '豆花', '豆腐皮', '素鸡', '豆泡', '油豆腐'],
 };
 
 // Exclusion patterns: if ingredient name contains these, skip the corresponding tag
 const EXCLUSION_PATTERNS: Record<string, string[]> = {
-  '海鲜': ['鱼香', '鱼露', '鱼腥草', '蟹黄酱', '虾酱', '虾油', '蚝油', '海鲜酱', '贝柱粉', '虾皮', '虾米', '鲍鱼汁', '虾味'],
+  '鱼': ['鱼香', '鱼露', '鱼腥草', '鱼丸', '鱼豆腐', '鱼粉', '鱼味'],
+  '虾': ['虾酱', '虾油', '虾皮', '虾米', '虾味'],
+  '海鲜': ['蟹黄酱', '蚝油', '海鲜酱', '贝柱粉', '鲍鱼汁', '海米'],
   '牛肉': ['牛肉粉', '牛肉精', '牛骨汤料', '牛油'],
   '猪肉': ['猪肉松', '猪肉脯', '猪油'],
   '鸡肉': ['鸡精', '鸡粉', '鸡汤', '鸡汁', '鸡油'],
   '羊肉': [],
   '鸭肉': [],
-  '蛋奶': ['鸡蛋羹', '鸡蛋液', '牛奶粉', '奶酪粉'],
+  '鸡蛋': [],
+  '豆制品': ['豆瓣酱', '豆豉', '豆腐乳'],
 };
 
 // Vegetarian indicators: only substantial vegetables, NOT seasonings/aromatics
@@ -730,7 +737,7 @@ const VEGETARIAN_INDICATORS = [
   '青椒', '红椒', '彩椒', '秋葵', '豆角', '四季豆', '长豆角',
 ];
 
-export function detectMainIngredients(ingredients: { name: string; group?: string }[]): string[] {
+function legacyDetectMainIngredients(ingredients: { name: string; group?: string }[]): string[] {
   const tags: string[] = [];
 
   for (const ing of ingredients) {
@@ -743,7 +750,7 @@ export function detectMainIngredients(ingredients: { name: string; group?: strin
     if (!name) continue;
 
     let matched = false;
-    const priorityTags = ['蛋奶', '海鲜', '豆制品', '牛肉', '猪肉', '羊肉', '鸭肉', '鸡肉'];
+    const priorityTags = ['鸡蛋', '鱼', '虾', '海鲜', '豆制品', '牛肉', '猪肉', '羊肉', '鸭肉', '鸡肉'];
     for (const tag of priorityTags) {
       const keywords = INGREDIENT_KEYWORDS[tag];
       if (!keywords) continue;
@@ -774,4 +781,52 @@ export function detectMainIngredients(ingredients: { name: string; group?: strin
   }
 
   return tags;
+}
+
+const MAIN_INGREDIENT_RULES = [
+  { tag: '牛肉', terms: ['牛肉', '牛腩', '牛排', '牛筋', '牛尾', '牛舌'], score: 100 },
+  { tag: '猪肉', terms: ['猪肉', '五花肉', '猪排', '排骨', '里脊', '肉末', '肉馅'], score: 100 },
+  { tag: '鸡肉', terms: ['鸡肉', '鸡腿', '鸡翅', '鸡胸', '鸡扒', '土鸡', '三黄鸡'], score: 100 },
+  { tag: '羊肉', terms: ['羊肉', '羊排', '羊腿', '羊蝎子', '羊腩', '羊杂', '羊肩'], score: 100 },
+  { tag: '鱼', terms: ['鱼片', '鱼柳', '鱼排', '鱼肉', '三文鱼', '鲈鱼', '鲫鱼', '鲳鱼', '鳕鱼', '带鱼', '黄鱼'], score: 100 },
+  { tag: '虾', terms: ['虾仁', '基围虾', '河虾', '海虾', '大虾', '龙虾', '罗氏虾', '白虾', '斑节虾'], score: 95 },
+  { tag: '海鲜', terms: ['扇贝', '蛤蜊', '生蚝', '鱿鱼', '章鱼', '墨鱼', '花甲', '青口'], score: 95 },
+  { tag: '鸡蛋', terms: ['鸡蛋', '鸭蛋', '鹌鹑蛋'], score: 80 },
+  { tag: '豆制品', terms: ['豆腐', '豆干', '腐竹', '豆皮'], score: 75 },
+  { tag: '芥兰', terms: ['芥兰'], score: 60 },
+  { tag: '茄子', terms: ['茄子'], score: 60 },
+  { tag: '包菜', terms: ['包菜', '卷心菜', '圆白菜'], score: 60 },
+  { tag: '白菜', terms: ['白菜', '娃娃菜'], score: 60 },
+  { tag: '菌菇', terms: ['香菇', '口蘑', '平菇', '金针菇', '杏鲍菇'], score: 60 },
+  { tag: '土豆', terms: ['土豆', '马铃薯'], score: 60 },
+  { tag: '番茄', terms: ['番茄', '西红柿'], score: 60 },
+  { tag: '豆角', terms: ['豆角', '四季豆', '荷兰豆'], score: 60 },
+  { tag: '黄瓜', terms: ['黄瓜'], score: 60 },
+];
+
+const SEASONING_WORDS = ['油', '盐', '糖', '醋', '酱', '料酒', '蚝油', '淀粉', '胡椒', '花椒', '辣椒', '葱', '姜', '蒜', '香菜', '芝麻', '孜然', '八角', '桂皮', '香叶', '水', '鸡精', '鸡粉'];
+const SEASONING_GROUPS = ['酱汁', '调料', '调味', '香料', '腌料', '蘸料', '底料', '料汁'];
+const NON_PRIMARY_INGREDIENTS = ['蒸鱼豉油', '鱼露', '虾干', '虾米', '虾皮'];
+
+/** Detect one or two substantial ingredients, never generic categories or seasonings. */
+export function detectMainIngredients(ingredients: { name: string; group?: string }[]): string[] {
+  const candidates = new Map<string, { score: number; index: number }>();
+
+  ingredients.forEach((ingredient, index) => {
+    const name = ingredient.name.trim();
+    const group = (ingredient.group || '').trim();
+    if (!name || SEASONING_GROUPS.some((word) => group.includes(word))) return;
+    if (NON_PRIMARY_INGREDIENTS.some((word) => name.includes(word))) return;
+    if (SEASONING_WORDS.some((word) => name === word || name.endsWith(word))) return;
+
+    const rule = MAIN_INGREDIENT_RULES.find((item) => item.terms.some((term) => name.includes(term)));
+    if (!rule) return;
+    const current = candidates.get(rule.tag);
+    if (!current || rule.score > current.score) candidates.set(rule.tag, { score: rule.score, index });
+  });
+
+  return [...candidates.entries()]
+    .sort(([, a], [, b]) => b.score - a.score || a.index - b.index)
+    .slice(0, 2)
+    .map(([tag]) => tag);
 }

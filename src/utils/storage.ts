@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   FOOD_ITEMS: 'recipe_app_food_items',
   REVIEW_ITEMS: 'recipe_app_review_items',
   SEARCH_HISTORY: 'recipe_app_search_history',
+  FAVORITE_IDS: 'recipe_app_favorite_ids',
   DATA_VERSION: 'recipe_app_data_version',
 };
 

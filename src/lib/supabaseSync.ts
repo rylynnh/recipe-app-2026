@@ -2,17 +2,15 @@ import { supabase } from './supabase';
 import { Recipe, TodoItem, FoodItem, UnitConversion, ReviewItem } from '../types';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS } from '../utils/storage';
 import { uploadRecipeImage, deleteRecipeImage, isCloudImageUrl } from './supabaseStorage';
+import { syncAdminRecipe, deleteAdminRecipe, clearAdminRecipes } from './adminRecipeSync';
 
 // ============ Load (Supabase -> merge into localStorage) ============
 
 export async function loadAllFromSupabase() {
   try {
-    const [recipesRes, todosRes, foodItemsRes, conversionsRes, reviewsRes] = await Promise.all([
+    const [recipesRes, conversionsRes] = await Promise.all([
       supabase.from('recipes').select('*'),
-      supabase.from('todos').select('*'),
-      supabase.from('food_items').select('*'),
       supabase.from('unit_conversions').select('*'),
-      supabase.from('review_items').select('*'),
     ]);
 
     if (recipesRes.data) {
@@ -27,31 +25,31 @@ export async function loadAllFromSupabase() {
       saveToStorage(STORAGE_KEYS.RECIPES, merged);
     }
 
-    if (todosRes.data) {
+    /* if (todosRes.data) {
       const todos = todosRes.data.map(dbRowToTodo);
       const local = loadFromStorage<TodoItem[]>(STORAGE_KEYS.TODOS, []);
       const merged = mergeById(local, todos);
       saveToStorage(STORAGE_KEYS.TODOS, merged);
-    }
+    } */
 
-    if (foodItemsRes.data) {
+    /* if (foodItemsRes.data) {
       const foodItems = foodItemsRes.data.map(dbRowToFoodItem);
       const local = loadFromStorage<FoodItem[]>(STORAGE_KEYS.FOOD_ITEMS, []);
       const merged = mergeById(local, foodItems);
       saveToStorage(STORAGE_KEYS.FOOD_ITEMS, merged);
-    }
+    } */
 
     if (conversionsRes.data) {
       const conversions = conversionsRes.data.map(dbRowToUnitConversion);
       saveToStorage(STORAGE_KEYS.FOOD_ITEMS + '_conversions', conversions);
     }
 
-    if (reviewsRes.data) {
+    /* if (reviewsRes.data) {
       const reviews = reviewsRes.data.map(dbRowToReviewItem);
       const local = loadFromStorage<ReviewItem[]>(STORAGE_KEYS.REVIEW_ITEMS, []);
       const merged = mergeById(local, reviews);
       saveToStorage(STORAGE_KEYS.REVIEW_ITEMS, merged);
-    }
+    } */
   } catch (e) {
     console.error('Failed to load from Supabase:', e);
   }
@@ -74,7 +72,7 @@ export async function loadAllFromSupabase() {
  *     ADD COLUMN IF NOT EXISTS main_ingredient text[] DEFAULT '{}',
  *     ADD COLUMN IF NOT EXISTS favorited boolean DEFAULT false;
  */
-export async function syncRecipeToSupabase(recipe: Recipe) {
+async function legacySyncRecipeToSupabase(recipe: Recipe): Promise<string | undefined> {
   let imageUrl = recipe.image;
 
   if (imageUrl && !isCloudImageUrl(imageUrl)) {
@@ -133,9 +131,11 @@ export async function syncRecipeToSupabase(recipe: Recipe) {
   } catch (e) {
     console.error('Failed to sync recipe:', e);
   }
+
+  return imageUrl !== recipe.image ? imageUrl : undefined;
 }
 
-export async function deleteRecipeFromSupabase(id: string) {
+async function legacyDeleteRecipeFromSupabase(id: string) {
   try {
     const { data: recipe } = await supabase.from('recipes').select('image').eq('id', id).single();
     if (recipe?.image && isCloudImageUrl(recipe.image)) {
@@ -147,12 +147,34 @@ export async function deleteRecipeFromSupabase(id: string) {
   }
 }
 
-export async function clearRecipesFromSupabase() {
+async function legacyClearRecipesFromSupabase() {
   try {
     await supabase.from('recipes').delete().neq('id', '');
   } catch (e) {
     console.error('Failed to clear recipes from Supabase:', e);
   }
+}
+
+// Cloud mutations are deliberately routed through the PIN-protected Edge
+// Function. When management mode is not unlocked these functions are no-ops,
+// so visitor data stays exclusively on this device.
+export async function syncRecipeToSupabase(recipe: Recipe): Promise<string | undefined> {
+  const result = await syncAdminRecipe(recipe);
+  if (!result.ok) {
+    if (result.error !== '管理模式未解锁') console.error('Failed to sync recipe:', result.error);
+    return undefined;
+  }
+  return result.data?.imageUrl;
+}
+
+export async function deleteRecipeFromSupabase(id: string) {
+  const result = await deleteAdminRecipe(id);
+  if (!result.ok && result.error !== '管理模式未解锁') console.error('Failed to delete recipe:', result.error);
+}
+
+export async function clearRecipesFromSupabase() {
+  const result = await clearAdminRecipes();
+  if (!result.ok && result.error !== '管理模式未解锁') console.error('Failed to clear recipes:', result.error);
 }
 
 // ============ Todos ============

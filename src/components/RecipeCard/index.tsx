@@ -3,50 +3,42 @@ import { Recipe } from '../../types';
 
 interface RecipeCardProps {
   recipe: Recipe;
+  variant?: 'portrait' | 'landscape' | 'compact';
 }
 
-export function RecipeCard({ recipe }: RecipeCardProps) {
+export function RecipeCard({ recipe, variant = 'portrait' }: RecipeCardProps) {
   const navigate = useNavigate();
+  const details = [
+    recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} 分钟` : null,
+    ...recipe.mainIngredient.slice(0, 2),
+  ].filter(Boolean).join(' · ');
+  const aspectRatio = variant === 'landscape' ? '16 / 10' : variant === 'compact' ? '1 / 1' : '4 / 5';
 
   return (
-    <div
+    <button
+      type="button"
       onClick={() => navigate(`/recipe/${recipe.id}`)}
-      className="cursor-pointer group"
+      className={`group text-left ${variant === 'compact' ? 'w-[146px] flex-none' : 'w-full'}`}
     >
-      {/* Image area — 4:3 ratio */}
-      <div className="relative w-full overflow-hidden rounded-card" style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}>
+      <div className="relative w-full overflow-hidden rounded-card bg-[#E7E0D5]" style={{ aspectRatio }}>
         {recipe.image ? (
           <img
             src={recipe.image}
             alt={recipe.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center p-4">
-            <span className="font-display text-secondary text-base text-center leading-snug line-clamp-3">{recipe.title}</span>
+          <div className="flex h-full w-full items-center justify-center p-4">
+            <span className="font-display text-center text-base leading-snug text-secondary line-clamp-3">{recipe.title}</span>
           </div>
         )}
       </div>
-
-      {/* Content */}
-      <div className="pt-3 pb-1">
-        <h3 className="font-display text-[16px] font-medium text-accent leading-snug mb-2 line-clamp-1 group-hover:text-accent/70 transition-colors duration-200">
+      <div className="pb-1 pt-3">
+        <h3 className="font-display mb-1 line-clamp-2 text-[17px] font-medium leading-snug text-primary transition-colors duration-200 group-hover:text-accent">
           {recipe.title}
         </h3>
-        <div className="flex flex-wrap gap-1.5">
-          <span className="text-[11px] px-2 py-0.5 border border-divider text-secondary rounded">
-            {recipe.structureTag}
-          </span>
-          {recipe.mainIngredient.slice(0, 2).map((tag) => (
-            <span
-              key={tag}
-              className="text-[11px] px-2 py-0.5 border border-divider text-secondary/70 rounded"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {details && <p className="font-mono-digit line-clamp-1 text-[11px] leading-5 text-secondary">{details}</p>}
       </div>
-    </div>
+    </button>
   );
 }
