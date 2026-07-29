@@ -10,6 +10,7 @@ import { TimerButton } from '../../components/TimerButton';
 import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDurationInText, detectMainIngredients } from '../../utils/nutrition';
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
+import { resolveRecipeImage } from '../../utils/recipeImage';
 
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -928,7 +929,7 @@ export function RecipeDetail() {
         {recipe.image && (
           <div className="w-full rounded-card overflow-hidden mb-5" style={{ aspectRatio: '4/3' }}>
             <img
-              src={recipe.image}
+              src={resolveRecipeImage(recipe.image)}
               alt={recipe.title}
               className="w-full h-full object-cover"
             />

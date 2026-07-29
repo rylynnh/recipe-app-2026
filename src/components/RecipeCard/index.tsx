@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Recipe } from '../../types';
+import { resolveRecipeImage } from '../../utils/recipeImage';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -23,7 +24,7 @@ export function RecipeCard({ recipe, variant = 'portrait' }: RecipeCardProps) {
       <div className="relative w-full overflow-hidden rounded-card bg-[#E7E0D5]" style={{ aspectRatio }}>
         {recipe.image ? (
           <img
-            src={recipe.image}
+            src={resolveRecipeImage(recipe.image)}
             alt={recipe.title}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import Empty from '../../components/Empty';
+import { resolveRecipeImage } from '../../utils/recipeImage';
 
 export function Favorites() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export function Favorites() {
                   <div className="w-14 h-14 rounded-lg overflow-hidden bg-divider/30 flex-shrink-0">
                     {recipe.image ? (
                       <img
-                        src={recipe.image}
+                        src={resolveRecipeImage(recipe.image)}
                         alt={recipe.title}
                         className="w-full h-full object-cover"
                       />

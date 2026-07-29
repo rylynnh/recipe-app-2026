@@ -4,6 +4,7 @@ import { Plus, BookOpen, Clock, ChevronRight, Database, Scale, Settings, Heart, 
 import { useRecipesStore } from '../../store/recipes';
 import { useTodosStore } from '../../store/todos';
 import { useFoodItemsStore } from '../../store/foodItems';
+import { resolveRecipeImage } from '../../utils/recipeImage';
 
 type ListView = 'all' | 'recent' | 'todos' | 'favorites' | 'deleted' | null;
 
@@ -95,7 +96,7 @@ export function Mine() {
                     >
                       <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: '#EAE6DE' }}>
                         {recipe.image ? (
-                          <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover" />
+                          <img src={resolveRecipeImage(recipe.image)} alt={recipe.title} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center p-1">
                             <span className="font-display text-secondary text-xs text-center leading-snug line-clamp-2">{recipe.title}</span>
@@ -127,7 +128,7 @@ export function Mine() {
                   >
                     <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: '#EAE6DE' }}>
                       {recipe.image ? (
-                        <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover" />
+                        <img src={resolveRecipeImage(recipe.image)} alt={recipe.title} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center p-1">
                           <span className="font-display text-secondary text-xs text-center leading-snug line-clamp-2">{recipe.title}</span>
@@ -252,7 +253,7 @@ export function Mine() {
                 >
                   <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: '#EAE6DE' }}>
                     {recipe.image ? (
-                      <img src={recipe.image} alt={recipe.title} className="w-full h-full object-cover" />
+                      <img src={resolveRecipeImage(recipe.image)} alt={recipe.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center p-1">
                         <span className="font-display text-secondary text-xs text-center leading-snug line-clamp-2">{recipe.title}</span>

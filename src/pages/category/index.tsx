@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { structureTags, ingredientTags } from '../../data/mock';
 import { useRecipesStore } from '../../store/recipes';
 import Empty from '../../components/Empty';
+import { resolveRecipeImage } from '../../utils/recipeImage';
 
 export function Category() {
   const [searchParams] = useSearchParams();
@@ -156,7 +157,7 @@ export function Category() {
                     >
                       {recipe.image ? (
                         <img
-                          src={recipe.image}
+                          src={resolveRecipeImage(recipe.image)}
                           alt={recipe.title}
                           className="w-full h-full object-cover"
                         />

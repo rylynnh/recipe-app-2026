@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Trash2 } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
+import { resolveRecipeImage } from '../../utils/recipeImage';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -125,7 +126,7 @@ export function SearchBar({ onSearch, currentQuery = '' }: SearchBarProps) {
                     >
                       <div className="w-10 h-10 rounded-lg bg-divider/30 flex items-center justify-center">
                         {recipe.image ? (
-                          <img src={recipe.image} alt="" className="w-full h-full object-cover rounded-lg" />
+                          <img src={resolveRecipeImage(recipe.image)} alt="" className="w-full h-full object-cover rounded-lg" />
                         ) : (
                           <span className="text-xs text-secondary">{recipe.title[0]}</span>
                         )}

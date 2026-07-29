@@ -6,6 +6,7 @@ import { RecipeCard } from '../../components/RecipeCard';
 import Empty from '../../components/Empty';
 import { useRecipesStore } from '../../store/recipes';
 import { Recipe } from '../../types';
+import { resolveRecipeImage } from '../../utils/recipeImage';
 
 const INGREDIENT_ICON_IMAGES: Record<string, string> = {
   '牛肉': `${import.meta.env.BASE_URL}ingredient-icons/beef.png`,
@@ -144,7 +145,7 @@ export function Home() {
         <section className="border-y border-divider">
           <button type="button" onClick={() => navigate(`/recipe/${featured.id}`)} className="group block w-full text-left">
             <div className="aspect-[16/10] overflow-hidden bg-[#E7E0D5]">
-              {featured.image ? <img src={featured.image} alt={featured.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]" /> : <div className="flex h-full items-center justify-center font-display text-xl text-secondary">{featured.title}</div>}
+              {featured.image ? <img src={resolveRecipeImage(featured.image)} alt={featured.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]" /> : <div className="flex h-full items-center justify-center font-display text-xl text-secondary">{featured.title}</div>}
             </div>
             <div className="px-5 py-5">
               <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-accent">Method / 001</p>
