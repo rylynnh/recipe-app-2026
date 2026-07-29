@@ -76,6 +76,7 @@ function recipeIntro(recipe: Recipe) {
 
 export function Home() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchDraft, setSearchDraft] = useState('');
   const navigate = useNavigate();
   const { searchRecipes, searchHistory } = useRecipesStore();
   const recipes = searchRecipes(searchQuery);
@@ -107,10 +108,10 @@ export function Home() {
       <div className="min-h-screen bg-background pb-24">
         <header className="sticky top-0 z-30 border-b border-divider bg-background/95 px-5 py-4 backdrop-blur">
           <div className="mb-4 flex items-center justify-between">
-            <button type="button" onClick={() => setSearchQuery('')} className="font-display text-[24px] tracking-[0.08em] text-primary">MISE</button>
+            <button type="button" onClick={() => { setSearchQuery(''); setSearchDraft(''); }} className="font-display text-[24px] tracking-[0.08em] text-primary">MISE</button>
             <span className="text-[11px] uppercase tracking-[0.16em] text-secondary">Search</span>
           </div>
-          <SearchBar onSearch={setSearchQuery} currentQuery={searchQuery} searchHistory={searchHistory} />
+          <SearchBar onSearch={(query) => { setSearchDraft(query); setSearchQuery(query); }} currentQuery={searchQuery} searchHistory={searchHistory} />
         </header>
         <main className="px-5 py-6">
           <p className="mb-4 text-[12px] text-secondary">检索结果 / {recipes.length}</p>
@@ -128,10 +129,16 @@ export function Home() {
             <p className="font-display text-[25px] tracking-[0.08em] text-primary">MISE</p>
             <p className="mt-0.5 text-[10px] uppercase tracking-[0.13em] text-secondary">Everything in its place.</p>
           </div>
-          <label className="relative ml-auto block w-32">
+          <form
+            className="relative ml-auto block w-32"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearchQuery(searchDraft.trim());
+            }}
+          >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-secondary" strokeWidth={1.5} />
-            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="搜索菜谱" aria-label="搜索菜谱" className="h-9 w-full rounded-full border border-divider bg-transparent pl-8 pr-3 text-[12px] text-primary outline-none placeholder:text-secondary focus:border-accent" />
-          </label>
+            <input value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="搜索菜谱" aria-label="搜索菜谱" enterKeyHint="search" className="h-9 w-full rounded-full border border-divider bg-transparent pl-8 pr-3 text-[12px] text-primary outline-none placeholder:text-secondary focus:border-accent" />
+          </form>
         </div>
       </header>
 
