@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, GripVertical } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useFoodItemsStore } from '../../store/foodItems';
 import { detectDurationInText, parsePastedText } from '../../utils/nutrition';
@@ -13,7 +13,23 @@ interface ParsedStep {
   content: string;
   hasTimer: boolean;
   detectedDurationSeconds: number;
+  /** Explicit timer edits should not be overwritten by text recognition. */
+  timerManuallyEdited?: boolean;
   image?: string;
+}
+
+type EditableIngredient = { name: string; amount: number; unit: string; group?: string };
+
+/** Keep each ingredient group in one continuous block while retaining its internal order. */
+function coalesceIngredientGroups(items: EditableIngredient[]) {
+  const grouped = new Map<string, EditableIngredient[]>();
+  items.forEach((item) => {
+    const key = item.group || '__ungrouped__';
+    const current = grouped.get(key) || [];
+    current.push(item);
+    grouped.set(key, current);
+  });
+  return Array.from(grouped.values()).flat();
 }
 
 export function AddRecipe() {
@@ -56,9 +72,21 @@ export function AddRecipe() {
 
   // Step image refs
   const stepImageInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const draggedIngredientIndex = useRef<number | null>(null);
 
   const categoryOptions = categories.filter((c) => c.id !== 's1');
   const inputClass = 'w-full px-4 py-3 bg-background text-primary rounded-input focus:outline-none focus:ring-2 focus:ring-accent/50';
+  const moveIngredient = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setIngredients((prev) => {
+      const next = [...prev];
+      const [dragged] = next.splice(fromIndex, 1);
+      const targetIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+      // Dropping into another section moves the ingredient into that section too.
+      next.splice(targetIndex, 0, { ...dragged, group: prev[toIndex]?.group });
+      return coalesceIngredientGroups(next);
+    });
+  };
 
   // --- Paste text parse ---
   const handleParseText = () => {
@@ -713,7 +741,7 @@ export function AddRecipe() {
                     ))}
                   </select>
                   <button
-                    onClick={() => setIngredients((prev) => [...prev, { name: '', amount: 0, unit: 'g', group: _newItemGroup || undefined }])}
+                    onClick={() => setIngredients((prev) => coalesceIngredientGroups([...prev, { name: '', amount: 0, unit: 'g', group: _newItemGroup || undefined }]))}
                     className="flex items-center gap-1 text-xs text-accent hover:text-accent/70 transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -736,7 +764,40 @@ export function AddRecipe() {
                         <span className="flex-1 h-px bg-divider/50"></span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 py-1">
+                    <div
+                      className="flex items-center gap-1.5 py-1"
+                      data-ingredient-index={index}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        const fromIndex = draggedIngredientIndex.current;
+                        draggedIngredientIndex.current = null;
+                        if (fromIndex === null || fromIndex === index) return;
+                        moveIngredient(fromIndex, index);
+                      }}
+                    >
+                      <button
+                        type="button"
+                        draggable
+                        onDragStart={() => { draggedIngredientIndex.current = index; }}
+                        onDragEnd={() => { draggedIngredientIndex.current = null; }}
+                        onPointerDown={(e) => {
+                          draggedIngredientIndex.current = index;
+                          e.currentTarget.setPointerCapture?.(e.pointerId);
+                        }}
+                        onPointerUp={(e) => {
+                          const fromIndex = draggedIngredientIndex.current;
+                          draggedIngredientIndex.current = null;
+                          const row = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-ingredient-index]');
+                          const toIndex = row ? Number(row.dataset.ingredientIndex) : NaN;
+                          if (fromIndex !== null && Number.isInteger(toIndex)) moveIngredient(fromIndex, toIndex);
+                        }}
+                        onPointerCancel={() => { draggedIngredientIndex.current = null; }}
+                        className="-ml-1 cursor-grab touch-none p-1 text-secondary/40 active:cursor-grabbing"
+                        title="拖动调整顺序"
+                        aria-label={`拖动 ${ing.name || '食材'} 调整顺序`}
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </button>
                       <input
                         type="text"
                         value={ing.name}
@@ -760,7 +821,7 @@ export function AddRecipe() {
                       />
                       <select
                         value={ing.group || ''}
-                        onChange={(e) => setIngredients((prev) => prev.map((item, i) => i === index ? { ...item, group: e.target.value || undefined } : item))}
+                        onChange={(e) => setIngredients((prev) => coalesceIngredientGroups(prev.map((item, i) => i === index ? { ...item, group: e.target.value || undefined } : item)))}
                         className="w-16 px-1 py-1.5 bg-background text-secondary text-xs rounded border border-divider focus:outline-none focus:border-accent"
                         title="选择分组"
                       >
@@ -784,7 +845,7 @@ export function AddRecipe() {
                   onClick={() => {
                     const name = prompt('输入新分组名称，如：面团、酱汁、腌料');
                     if (name && name.trim()) {
-                      setIngredients((prev) => [...prev, { name: '', amount: 0, unit: 'g', group: name.trim() }]);
+                      setIngredients((prev) => coalesceIngredientGroups([...prev, { name: '', amount: 0, unit: 'g', group: name.trim() }]));
                       set_newItemGroup(name.trim());
                     }
                   }}
@@ -822,6 +883,7 @@ export function AddRecipe() {
                         onChange={(e) => setSteps((prev) => prev.map((s, i) => {
                           if (i !== index) return s;
                           const duration = detectDurationInText(e.target.value);
+                          if (s.timerManuallyEdited) return { ...s, content: e.target.value };
                           return { ...s, content: e.target.value, hasTimer: duration > 0, detectedDurationSeconds: duration };
                         }))}
                         placeholder={`步骤 ${index + 1}`}
@@ -829,9 +891,46 @@ export function AddRecipe() {
                         className="flex-1 min-w-0 px-2 py-1.5 bg-background text-primary text-sm rounded resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
                       />
                       {step.hasTimer && (
-                        <span className="text-xs text-accent bg-accent/10 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 mt-1.5">
-                          {Math.floor(step.detectedDurationSeconds / 60)}分钟
-                        </span>
+                        <div className="flex h-7 flex-shrink-0 items-center rounded bg-accent/10 text-xs text-accent mt-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={Math.max(1, Math.round(step.detectedDurationSeconds / 60))}
+                            onChange={(e) => {
+                              const minutes = Number(e.target.value);
+                              if (!Number.isFinite(minutes) || minutes <= 0) return;
+                              setSteps((prev) => prev.map((s, i) => i === index
+                                ? { ...s, hasTimer: true, detectedDurationSeconds: Math.round(minutes * 60), timerManuallyEdited: true }
+                                : s));
+                            }}
+                            aria-label={`步骤 ${index + 1} 的计时分钟数`}
+                            className="w-10 bg-transparent px-1 text-right outline-none"
+                          />
+                          <span className="pr-1 whitespace-nowrap">分钟</span>
+                          <button
+                            type="button"
+                            onClick={() => setSteps((prev) => prev.map((s, i) => i === index
+                              ? { ...s, hasTimer: false, detectedDurationSeconds: 0, timerManuallyEdited: true }
+                              : s))}
+                            className="mr-0.5 rounded p-0.5 hover:bg-accent/20"
+                            title="移除计时器"
+                            aria-label={`移除步骤 ${index + 1} 的计时器`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      {!step.hasTimer && (
+                        <button
+                          type="button"
+                          onClick={() => setSteps((prev) => prev.map((s, i) => i === index
+                            ? { ...s, hasTimer: true, detectedDurationSeconds: 60, timerManuallyEdited: true }
+                            : s))}
+                          className="mt-1.5 h-7 flex-shrink-0 rounded border border-accent/30 px-2 text-xs text-accent hover:bg-accent/10"
+                        >
+                          + 计时
+                        </button>
                       )}
                       {/* Camera button for step image */}
                       {step.image ? (
