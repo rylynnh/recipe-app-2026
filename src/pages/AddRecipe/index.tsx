@@ -93,7 +93,7 @@ export function AddRecipe() {
     if (!pasteText.trim()) return;
     const result = parsePastedText(pasteText);
     if (result.title && !title) setTitle(result.title);
-    if (result.ingredients.length > 0) setIngredients(result.ingredients);
+    if (result.ingredients.length > 0) setIngredients(coalesceIngredientGroups(result.ingredients));
     if (result.steps.length > 0) {
       setSteps(
         result.steps.map((step) => ({
@@ -171,7 +171,7 @@ export function AddRecipe() {
     if (!combined.trim()) return;
     const result = parsePastedText(combined);
     if (result.title && !title) setTitle(result.title);
-    if (result.ingredients.length > 0) setIngredients(result.ingredients);
+    if (result.ingredients.length > 0) setIngredients(coalesceIngredientGroups(result.ingredients));
     if (result.steps.length > 0) {
       setSteps(
         result.steps.map((step) => ({
@@ -792,11 +792,12 @@ export function AddRecipe() {
                           if (fromIndex !== null && Number.isInteger(toIndex)) moveIngredient(fromIndex, toIndex);
                         }}
                         onPointerCancel={() => { draggedIngredientIndex.current = null; }}
-                        className="-ml-1 cursor-grab touch-none p-1 text-secondary/40 active:cursor-grabbing"
+                        className="-ml-1 flex shrink-0 cursor-grab touch-none items-center gap-0.5 rounded border border-divider bg-background px-1 py-1.5 text-[10px] text-secondary active:cursor-grabbing"
                         title="拖动调整顺序"
                         aria-label={`拖动 ${ing.name || '食材'} 调整顺序`}
                       >
                         <GripVertical className="h-4 w-4" />
+                        <span>拖动</span>
                       </button>
                       <input
                         type="text"
@@ -891,7 +892,8 @@ export function AddRecipe() {
                         className="flex-1 min-w-0 px-2 py-1.5 bg-background text-primary text-sm rounded resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
                       />
                       {step.hasTimer && (
-                        <div className="flex h-7 flex-shrink-0 items-center rounded bg-accent/10 text-xs text-accent mt-1.5">
+                        <div className="mt-1.5 flex h-8 flex-shrink-0 items-center rounded border border-accent/40 bg-accent/10 text-xs text-accent">
+                          <span className="pl-1.5 text-[10px]">计时</span>
                           <input
                             type="number"
                             min="1"
@@ -905,7 +907,7 @@ export function AddRecipe() {
                                 : s));
                             }}
                             aria-label={`步骤 ${index + 1} 的计时分钟数`}
-                            className="w-10 bg-transparent px-1 text-right outline-none"
+                            className="mx-1 w-9 border-b border-accent/40 bg-transparent px-0.5 text-center outline-none"
                           />
                           <span className="pr-1 whitespace-nowrap">分钟</span>
                           <button
@@ -913,11 +915,11 @@ export function AddRecipe() {
                             onClick={() => setSteps((prev) => prev.map((s, i) => i === index
                               ? { ...s, hasTimer: false, detectedDurationSeconds: 0, timerManuallyEdited: true }
                               : s))}
-                            className="mr-0.5 rounded p-0.5 hover:bg-accent/20"
+                            className="mr-0.5 rounded px-1 py-0.5 text-sm leading-none hover:bg-accent/20"
                             title="移除计时器"
                             aria-label={`移除步骤 ${index + 1} 的计时器`}
                           >
-                            <X className="h-3 w-3" />
+                            <span aria-hidden="true">×</span>
                           </button>
                         </div>
                       )}
