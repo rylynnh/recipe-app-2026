@@ -21,10 +21,14 @@ const INGREDIENT_ICON_IMAGES: Record<string, string> = {
 
 function RecipeMeta({ recipe }: { recipe: Recipe }) {
   const ingredients = recipe.mainIngredient.slice(0, 2).join('、');
+  const details = [
+    recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} 分钟` : null,
+    ingredients || null,
+  ].filter(Boolean).join(' · ');
+  if (!details) return null;
   return (
     <p className="font-mono-digit text-[11px] leading-5 text-secondary">
-      {recipe.totalTimeMinutes ? `${recipe.totalTimeMinutes} 分钟` : '料理方法'}
-      {ingredients ? ` · ${ingredients}` : ''}
+      {details}
     </p>
   );
 }

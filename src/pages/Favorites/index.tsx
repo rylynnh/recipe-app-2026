@@ -13,7 +13,7 @@ export function Favorites() {
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm px-4 py-4 border-b border-divider flex items-center gap-4">
         <button
-          onClick={() => navigate('/mine')}
+          onClick={() => navigate('/')}
           className="p-2 -ml-2 hover:bg-divider/50 rounded-full transition-colors"
         >
           <ArrowLeft className="w-5 h-5 text-primary" />
