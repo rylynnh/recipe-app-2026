@@ -122,16 +122,17 @@ export function RecipeDetail() {
     return styles[type || ''] || 'default';
   };
 
-  const handleCropMouseDown = (e: React.MouseEvent, type: 'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se' | 'resize-n' | 'resize-s' | 'resize-e' | 'resize-w') => {
+  const handleCropPointerDown = (e: React.PointerEvent, type: 'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se' | 'resize-n' | 'resize-s' | 'resize-e' | 'resize-w') => {
     e.preventDefault();
     e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     setIsDragging(true);
     setDragType(type);
     setDragStart({ x: e.clientX, y: e.clientY });
     setCropStart({ ...cropArea });
   };
 
-  const handleCropMouseMove = (e: React.MouseEvent) => {
+  const handleCropPointerMove = (e: React.PointerEvent) => {
     if (!isDragging || !dragType) return;
 
     const img = cropImageRef.current;
@@ -260,7 +261,7 @@ export function RecipeDetail() {
     setCropArea({ x: newX, y: newY, width: newWidth, height: newHeight });
   };
 
-  const handleCropMouseUp = () => {
+  const handleCropPointerUp = () => {
     setIsDragging(false);
     setDragType(null);
   };
@@ -496,10 +497,10 @@ export function RecipeDetail() {
                 <div className="space-y-3">
                   <div 
                     className="relative w-full rounded-lg overflow-hidden" 
-                    style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}
-                    onMouseMove={handleCropMouseMove}
-                    onMouseUp={handleCropMouseUp}
-                    onMouseLeave={handleCropMouseUp}
+                    style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE', touchAction: 'none' }}
+                    onPointerMove={handleCropPointerMove}
+                    onPointerUp={handleCropPointerUp}
+                    onPointerCancel={handleCropPointerUp}
                   >
                     <img
                       ref={cropImageRef}
@@ -516,39 +517,39 @@ export function RecipeDetail() {
                         top: `${cropArea.y}px`,
                         cursor: getCursorStyle(dragType) || 'move',
                       }}
-                      onMouseDown={(e) => handleCropMouseDown(e, 'move')}
+                      onPointerDown={(e) => handleCropPointerDown(e, 'move')}
                     >
                       <div 
                         className="absolute -top-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-nw-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-nw')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-nw')}
                       />
                       <div 
                         className="absolute -top-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-ne-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-ne')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-ne')}
                       />
                       <div 
                         className="absolute -bottom-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-sw-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-sw')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-sw')}
                       />
                       <div 
                         className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-se-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-se')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-se')}
                       />
                       <div 
                         className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-n-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-n')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-n')}
                       />
                       <div 
                         className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-s-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-s')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-s')}
                       />
                       <div 
                         className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-w-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-w')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-w')}
                       />
                       <div 
                         className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-e-resize"
-                        onMouseDown={(e) => handleCropMouseDown(e, 'resize-e')}
+                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-e')}
                       />
                     </div>
                   </div>
