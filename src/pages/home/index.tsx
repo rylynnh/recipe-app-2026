@@ -82,7 +82,7 @@ export function Home() {
   const recipes = searchRecipes(searchQuery);
   const featured = recipes[0];
   const featuredIntro = featured ? recipeIntro(featured) : '';
-  const recent = recipes.slice(1, 4);
+  const recent = recipes.slice(1, 7);
   const seasonal = recipes[4] ?? recipes[1];
   const showSeasonal = false;
   const ingredients = useMemo(() => {
@@ -171,9 +171,23 @@ export function Home() {
           <div className="grid grid-cols-[1.05fr_.95fr] gap-4">
             {recent[0] && <RecipeCard recipe={recent[0]} variant="portrait" />}
             <div className="space-y-5 pt-7">
-              {recent.slice(1).map((recipe) => <RecipeCard key={recipe.id} recipe={recipe} variant="landscape" />)}
+              {recent.slice(1, 3).map((recipe) => <RecipeCard key={recipe.id} recipe={recipe} variant="landscape" />)}
             </div>
           </div>
+          {recent.slice(3, 6).length > 0 && <div className="mt-7 border-t border-divider pt-1">
+            {recent.slice(3, 6).map((recipe) => (
+              <button key={recipe.id} type="button" onClick={() => navigate(`/recipe/${recipe.id}`)} className="group flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0">
+                <div className="h-[62px] w-[82px] flex-none overflow-hidden rounded-card bg-[#E7E0D5]">
+                  {recipe.image ? <img src={resolveRecipeImage(recipe.image)} alt={recipe.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" /> : <div className="flex h-full items-center justify-center p-2 font-display text-center text-[11px] leading-snug text-secondary">{recipe.title}</div>}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-display truncate text-[17px] font-medium text-primary">{recipe.title}</h3>
+                  <div className="mt-1"><RecipeMeta recipe={recipe} /></div>
+                </div>
+                <ArrowRight className="h-3.5 w-3.5 flex-none text-secondary opacity-60" />
+              </button>
+            ))}
+          </div>}
         </section>}
 
         {ingredients.length > 0 && <section className="border-y border-divider py-8">
