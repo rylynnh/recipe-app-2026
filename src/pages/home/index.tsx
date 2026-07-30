@@ -81,9 +81,11 @@ function recipeIntro(recipe: Recipe) {
 export function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
+  const [isSearchComposing, setIsSearchComposing] = useState(false);
   const navigate = useNavigate();
   const { searchRecipes, searchHistory } = useRecipesStore();
   useEffect(() => {
+    if (isSearchComposing) return;
     const query = searchDraft.trim();
     if (!query) {
       setSearchQuery('');
@@ -91,7 +93,7 @@ export function Home() {
     }
     const timer = window.setTimeout(() => setSearchQuery(query), 350);
     return () => window.clearTimeout(timer);
-  }, [searchDraft]);
+  }, [searchDraft, isSearchComposing]);
   const recipes = searchRecipes(searchQuery);
   const featured = recipes[0];
   const featuredIntro = featured ? recipeIntro(featured) : '';
@@ -150,7 +152,19 @@ export function Home() {
             }}
           >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-secondary" strokeWidth={1.5} />
-            <input value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} placeholder="搜索菜谱" aria-label="搜索菜谱" enterKeyHint="search" className="h-9 w-full rounded-full border border-divider bg-transparent pl-8 pr-3 text-[12px] text-primary outline-none placeholder:text-secondary focus:border-accent" />
+            <input
+              value={searchDraft}
+              onChange={(event) => setSearchDraft(event.target.value)}
+              onCompositionStart={() => setIsSearchComposing(true)}
+              onCompositionEnd={(event) => {
+                setIsSearchComposing(false);
+                setSearchDraft(event.currentTarget.value);
+              }}
+              placeholder="搜索菜谱"
+              aria-label="搜索菜谱"
+              enterKeyHint="search"
+              className="h-9 w-full rounded-full border border-divider bg-transparent pl-8 pr-3 text-[12px] text-primary outline-none placeholder:text-secondary focus:border-accent"
+            />
           </form>
         </div>
       </header>
