@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { structureTags, ingredientTags } from '../../data/mock';
+import { structureTags } from '../../data/mock';
 import { useRecipesStore } from '../../store/recipes';
 import Empty from '../../components/Empty';
 import { resolveRecipeImage } from '../../utils/recipeImage';
@@ -39,11 +39,12 @@ export function Category() {
 
   const relevantIngredientTags = useMemo(() => {
     const categoryRecipes = filterByStructure(selectedStructure);
-    const usedIngredients = new Set(
-      categoryRecipes.flatMap((r) => r.mainIngredient)
-    );
-    if (usedIngredients.size === 0) return [];
-    return ingredientTags.filter((tag) => usedIngredients.has(tag.name));
+    const seen = new Set<string>();
+    return categoryRecipes.flatMap((recipe) => recipe.mainIngredient).filter((tag) => {
+      if (seen.has(tag)) return false;
+      seen.add(tag);
+      return true;
+    });
   }, [selectedStructure, recipes]);
 
   const structureCounts = useMemo(() => {
@@ -103,15 +104,15 @@ export function Category() {
         {/* Right main area */}
         <main className="flex-1 overflow-y-auto pb-6">
           {/* Ingredient chips row */}
-          <div className="px-5 pt-4 pb-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
+            <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {relevantIngredientTags.map((tag) => {
-                const isSelected = selectedIngredients.includes(tag.name);
+                const isSelected = selectedIngredients.includes(tag);
                 return (
                   <button
-                    key={tag.id}
-                    onClick={() => handleIngredientToggle(tag.name)}
-                    className="px-3 py-1 rounded-full text-[12px] transition-colors"
+                    key={tag}
+                    onClick={() => handleIngredientToggle(tag)}
+                    className="shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] transition-colors"
                     style={{
                       backgroundColor: isSelected ? 'var(--color-accent-tint)' : 'transparent',
                       color: isSelected ? 'var(--color-accent)' : 'var(--color-text-secondary)',
@@ -119,20 +120,23 @@ export function Category() {
                       border: isSelected ? 'none' : '1px solid var(--color-divider)',
                     }}
                   >
-                    {tag.name}
+                    {tag}
                   </button>
                 );
               })}
               {selectedIngredients.length > 0 && (
                 <button
                   onClick={() => setSelectedIngredients([])}
-                  className="px-2 py-1 text-[12px] transition-colors"
+                  className="shrink-0 whitespace-nowrap px-2 py-1 text-[12px] transition-colors"
                   style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }}
                 >
                   清除
                 </button>
               )}
             </div>
+            <span className="shrink-0 border-l border-divider pl-3 font-mono-digit text-[12px] text-secondary" aria-label={`当前筛选结果 ${filteredRecipes.length} 道`}>
+              {filteredRecipes.length}
+            </span>
           </div>
 
           {/* Recipe list */}
