@@ -11,6 +11,7 @@ import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDuratio
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
 import { resolveRecipeImage } from '../../utils/recipeImage';
+import { CoverImageEditor } from '../../components/CoverImageEditor';
 
 type EditableIngredient = { id: string; name: string; amount: number; unit: string; group?: string };
 type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
@@ -520,83 +521,15 @@ export function RecipeDetail() {
                     <Crop className="w-4 h-4" />
                   </button>
                 </div>
-              ) : isCropping ? (
-                <div className="space-y-3">
-                  <div 
-                    className="relative w-full rounded-lg overflow-hidden" 
-                    style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE', touchAction: 'none' }}
-                    onPointerMove={handleCropPointerMove}
-                    onPointerUp={handleCropPointerUp}
-                    onPointerCancel={handleCropPointerUp}
-                  >
-                    <img
-                      ref={cropImageRef}
-                      src={editImage}
-                      alt="裁剪预览"
-                      className="w-full h-full object-cover"
-                    />
-                    <div
-                      className="absolute border-2 border-accent bg-accent/20"
-                      style={{
-                        width: `${cropArea.width}px`,
-                        height: `${cropArea.height}px`,
-                        left: `${cropArea.x}px`,
-                        top: `${cropArea.y}px`,
-                        cursor: getCursorStyle(dragType) || 'move',
-                      }}
-                      onPointerDown={(e) => handleCropPointerDown(e, 'move')}
-                    >
-                      <div 
-                        className="absolute -top-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-nw-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-nw')}
-                      />
-                      <div 
-                        className="absolute -top-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-ne-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-ne')}
-                      />
-                      <div 
-                        className="absolute -bottom-1 -left-1 w-4 h-4 bg-accent rounded-sm cursor-sw-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-sw')}
-                      />
-                      <div 
-                        className="absolute -bottom-1 -right-1 w-4 h-4 bg-accent rounded-sm cursor-se-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-se')}
-                      />
-                      <div 
-                        className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-n-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-n')}
-                      />
-                      <div 
-                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-accent cursor-s-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-s')}
-                      />
-                      <div 
-                        className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-w-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-w')}
-                      />
-                      <div 
-                        className="absolute -right-1 top-1/2 -translate-y-1/2 w-1 h-4 bg-accent cursor-e-resize"
-                        onPointerDown={(e) => handleCropPointerDown(e, 'resize-e')}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => cancelCrop()}
-                      className="flex-1 py-3 bg-bg-input text-text-secondary rounded-input flex items-center justify-center gap-2"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      取消
-                    </button>
-                    <button
-                      onClick={() => applyCrop()}
-                      className="flex-1 py-3 bg-accent text-text-white rounded-input flex items-center justify-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      确认裁剪
-                    </button>
-                  </div>
-                </div>
+              ) : isCropping && editImage ? (
+                <CoverImageEditor
+                  image={editImage}
+                  onCancel={cancelCrop}
+                  onConfirm={(nextImage) => {
+                    setEditImage(nextImage);
+                    setIsCropping(false);
+                  }}
+                />
               ) : (
                 <label
                   className="block w-full cursor-pointer"

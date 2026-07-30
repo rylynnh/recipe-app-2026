@@ -25,6 +25,13 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
 
   useLayoutEffect(() => {
+    const source = imageRef.current;
+    if (source?.complete && source.naturalWidth && source.naturalHeight) {
+      setNaturalSize({ width: source.naturalWidth, height: source.naturalHeight });
+    }
+  }, [image]);
+
+  useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage || !naturalSize) return;
 
