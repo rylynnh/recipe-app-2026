@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, GripVertical } from 'lucide-react';
+import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, Menu } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useFoodItemsStore } from '../../store/foodItems';
 import { detectDurationInText, parsePastedText } from '../../utils/nutrition';
@@ -777,12 +777,18 @@ export function AddRecipe() {
                     >
                       <button
                         type="button"
-                        draggable
-                        onDragStart={() => { draggedIngredientIndex.current = index; }}
-                        onDragEnd={() => { draggedIngredientIndex.current = null; }}
                         onPointerDown={(e) => {
                           draggedIngredientIndex.current = index;
                           e.currentTarget.setPointerCapture?.(e.pointerId);
+                        }}
+                        onPointerMove={(e) => {
+                          const fromIndex = draggedIngredientIndex.current;
+                          const row = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-ingredient-index]');
+                          const toIndex = row ? Number(row.dataset.ingredientIndex) : NaN;
+                          if (fromIndex !== null && Number.isInteger(toIndex) && fromIndex !== toIndex) {
+                            moveIngredient(fromIndex, toIndex);
+                            draggedIngredientIndex.current = fromIndex < toIndex ? toIndex - 1 : toIndex;
+                          }
                         }}
                         onPointerUp={(e) => {
                           const fromIndex = draggedIngredientIndex.current;
@@ -792,12 +798,11 @@ export function AddRecipe() {
                           if (fromIndex !== null && Number.isInteger(toIndex)) moveIngredient(fromIndex, toIndex);
                         }}
                         onPointerCancel={() => { draggedIngredientIndex.current = null; }}
-                        className="-ml-1 flex shrink-0 cursor-grab touch-none items-center gap-0.5 rounded border border-divider bg-background px-1 py-1.5 text-[10px] text-secondary active:cursor-grabbing"
+                        className="-ml-1 shrink-0 cursor-grab touch-none p-2 text-secondary/60 active:cursor-grabbing"
                         title="拖动调整顺序"
                         aria-label={`拖动 ${ing.name || '食材'} 调整顺序`}
                       >
-                        <GripVertical className="h-4 w-4" />
-                        <span>拖动</span>
+                        <Menu className="h-4 w-4" strokeWidth={1.5} />
                       </button>
                       <input
                         type="text"
