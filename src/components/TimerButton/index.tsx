@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { RotateCcw, Edit2, Check, X } from 'lucide-react';
+import { Play, Pause, RotateCcw, Edit2, Check, X } from 'lucide-react';
 import { formatDuration } from '../../utils/parser';
 
 interface TimerButtonProps {
@@ -135,6 +135,7 @@ export function TimerButton({ duration, stepId, onDurationChange }: TimerButtonP
             : 'bg-accent/10 text-accent hover:bg-accent/20'
         }`}
       >
+        {isRunning ? <Pause className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="h-3.5 w-3.5" fill="currentColor" />}
         {formatDuration(remaining)}
       </button>
       <button
