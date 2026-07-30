@@ -147,8 +147,8 @@ export function parsePastedText(text: string): {
 
     // First, check if the text contains multiple ingredients separated by punctuation (、，;)
     // If so, split and parse each part separately
-    if (/[、，;]/.test(trimmed)) {
-      const parts = trimmed.split(/[、，;]/).filter(s => s.trim().length > 0);
+    if (/[、，,；;]/.test(trimmed)) {
+      const parts = trimmed.split(/[、，,；;]/).filter(s => s.trim().length > 0);
       if (parts.length > 1) {
         for (const part of parts) {
           const parsed = parseIngredientLine(part.trim(), group);
@@ -188,15 +188,33 @@ export function parsePastedText(text: string): {
 
   // Parse a single ingredient line
   const parseIngredientLine = (line: string, group?: string): { name: string; amount: number; unit: string; group?: string } | null => {
-    const trimmed = line.trim();
+    const trimmed = line.trim().replace(/[、，,；;]+$/, '');
     // Lines starting with action verbs are steps, not ingredients
     if (stepStartVerbs.test(trimmed)) return null;
+
+    const makeIngredient = (name: string, amount: number, unit: string) => {
+      // Chinese market weight is more useful in a precise recipe as grams.
+      if (unit === '斤') return { name, amount: Math.round(amount * 500), unit: 'g', group };
+      if (unit === '两') return { name, amount: Math.round(amount * 50), unit: 'g', group };
+      return { name, amount, unit, group };
+    };
+
+    // Common Chinese half quantities: 半斤、半茶匙、小半瓷勺、一半勺.
+    // This runs before the numeric parser because there is no Arabic digit to match.
+    const halfMatch = trimmed.match(/^([\u4e00-\u9fa5a-zA-Z/\s\(\)（）]+?)\s*(小半|一半|半)\s*([a-zA-Z\u4e00-\u9fa5]+)\s*$/);
+    if (halfMatch) {
+      const name = halfMatch[1].trim();
+      const unit = halfMatch[3].trim();
+      if (name && name.length <= 20 && !['小时', '分钟', '秒', '度', '℃'].includes(unit)) {
+        return makeIngredient(name, 0.5, unit);
+      }
+    }
 
     // Amount pattern: fraction (1/4) or decimal/integer (100, 0.5) — fraction first so it wins
     const AMOUNT = '(\\d+(?:\\.\\d+)?\\s*\\/\\s*\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
     // Pattern: name [separator] amount unit
     // Supports: "高筋粉 500g", "猪肉100g", "猪肉-100g", "洋葱（切碎）1/4个", "陈醋 30 g"
-    const match = trimmed.match(new RegExp(`^([\\u4e00-\\u9fa5a-zA-Z\\s\\(\\)（）]+?)\\s*[-–—~～:：]?\\s*${AMOUNT}\\s*([a-zA-Z\\u4e00-\\u9fa5]+)\\s*$`));
+    const match = trimmed.match(new RegExp(`^([\\u4e00-\\u9fa5a-zA-Z/\\s\\(\\)（）]+?)\\s*[-–—~～:：]?\\s*${AMOUNT}\\s*([a-zA-Z\\u4e00-\\u9fa5]+)\\s*$`));
     if (match) {
       const name = match[1].trim();
       const unit = match[3].trim();
@@ -204,7 +222,7 @@ export function parsePastedText(text: string): {
       if (['小时', '分钟', '秒', '度', '℃'].includes(unit)) return null;
       // Reject overly long names or units (likely a step description)
       if (name.length > 20 || unit.length > 4) return null;
-      return { name, amount: parseAmountValue(match[2]), unit, group };
+      return makeIngredient(name, parseAmountValue(match[2]), unit);
     }
 
     // Pattern: name amount unit separated by spaces (e.g., "陈醋 30 g", "猪肉 1/4 个", "猪肉 1 1/2 勺")
@@ -232,7 +250,7 @@ export function parsePastedText(text: string): {
     }
 
     // Pattern: name + "适量/少许" (e.g., "盐 适量", "盐适量")
-    const amountMatch = trimmed.match(/^([\u4e00-\u9fa5a-zA-Z\s\(\)（）]+?)\s*(适量|少许|若干)$/);
+    const amountMatch = trimmed.match(/^([\u4e00-\u9fa5a-zA-Z/\s\(\)（）]+?)\s*(适量|少许|若干)$/);
     if (amountMatch) {
       return { name: amountMatch[1].trim(), amount: 0, unit: amountMatch[2], group };
     }
@@ -348,11 +366,22 @@ export function parsePastedText(text: string): {
     // If in ingredients section
     if (inIngredients) {
       // First, check if the line contains multiple ingredients separated by punctuation
-      if (/[、，;]/.test(trimmed)) {
-        const parts = trimmed.split(/[、，;]/).filter(s => s.trim().length > 0);
+      if (/[、，,；;]/.test(trimmed)) {
+        const parts = trimmed.split(/[、，,；;]/).filter(s => s.trim().length > 0);
         if (parts.length > 1) {
           let parsedAny = false;
           for (const part of parts) {
+            const inlineGroup = isSubGroupHeader(part.trim());
+            if (inlineGroup !== null) {
+              const inlineContent = part.slice(part.indexOf('：') >= 0 ? part.indexOf('：') + 1 : part.indexOf(':') + 1).trim();
+              const groupedItems = parseInlineIngredients(inlineContent, inlineGroup);
+              if (groupedItems.length > 0) {
+                ingredients.push(...groupedItems);
+                currentGroup = inlineGroup;
+                parsedAny = true;
+                continue;
+              }
+            }
             const parsed = parseIngredientLine(part.trim(), currentGroup);
             if (parsed) {
               ingredients.push(parsed);

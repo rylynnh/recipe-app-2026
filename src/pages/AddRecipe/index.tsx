@@ -105,7 +105,6 @@ export function AddRecipe() {
     }
     if (result.note) setNote(result.note);
     const issues: string[] = [];
-    if (!result.title) issues.push('未识别到标题，请手动填写');
     if (result.ingredients.length === 0) issues.push('未识别到食材，请手动添加');
     if (result.steps.length === 0) issues.push('未识别到步骤，请手动添加');
     if (issues.length > 0) alert(issues.join('\n'));

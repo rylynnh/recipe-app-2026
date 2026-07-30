@@ -124,7 +124,19 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
             transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px))`,
           }}
         />
-        <div className="pointer-events-none absolute inset-0 border border-white/70 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)]" />
+        <div className="pointer-events-none absolute inset-0 border-2 border-white/90 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.42)]" />
+        <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3">
+          {[...Array(9)].map((_, index) => (
+            <span
+              key={index}
+              className={`border-white/35 ${index % 3 !== 2 ? 'border-r' : ''} ${index < 6 ? 'border-b' : ''}`}
+            />
+          ))}
+        </div>
+        <span className="pointer-events-none absolute -left-0.5 -top-0.5 h-4 w-4 border-l-2 border-t-2 border-white" />
+        <span className="pointer-events-none absolute -right-0.5 -top-0.5 h-4 w-4 border-r-2 border-t-2 border-white" />
+        <span className="pointer-events-none absolute -bottom-0.5 -left-0.5 h-4 w-4 border-b-2 border-l-2 border-white" />
+        <span className="pointer-events-none absolute -bottom-0.5 -right-0.5 h-4 w-4 border-b-2 border-r-2 border-white" />
         <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1.5 text-xs text-white">拖动图片调整位置</p>
       </div>
 
