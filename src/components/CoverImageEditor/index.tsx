@@ -18,6 +18,8 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
   const stageRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ pointerId: number; x: number; y: number; position: Position } | null>(null);
+  const pointersRef = useRef(new Map<number, Position>());
+  const pinchRef = useRef<{ distance: number; zoom: number } | null>(null);
   const [naturalSize, setNaturalSize] = useState<Size | null>(null);
   const [stageSize, setStageSize] = useState<Size | null>(null);
   const [coverScale, setCoverScale] = useState(1);
@@ -63,10 +65,32 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size === 2) {
+      const [first, second] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        distance: Math.hypot(first.x - second.x, first.y - second.y),
+        zoom,
+      };
+      dragRef.current = null;
+      return;
+    }
     dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, position };
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (pointersRef.current.has(event.pointerId)) {
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    const pinch = pinchRef.current;
+    if (pinch && pointersRef.current.size >= 2) {
+      const [first, second] = [...pointersRef.current.values()];
+      const distance = Math.hypot(first.x - second.x, first.y - second.y);
+      if (pinch.distance > 0) {
+        handleZoom(Math.min(3, Math.max(1, pinch.zoom * (distance / pinch.distance))));
+      }
+      return;
+    }
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     setPosition(constrainPosition(zoom, {
@@ -76,32 +100,42 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
   };
 
   const finishDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
     if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
   };
 
   const apply = () => {
     const source = imageRef.current;
-    if (!source || !stageSize || !naturalSize) return;
+    if (!source || !stageSize || !naturalSize) {
+      onConfirm(image);
+      return;
+    }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = OUTPUT_WIDTH;
-    canvas.height = OUTPUT_HEIGHT;
-    const context = canvas.getContext('2d');
-    if (!context) return;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = OUTPUT_WIDTH;
+      canvas.height = OUTPUT_HEIGHT;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Canvas context is unavailable');
 
-    const outputScale = OUTPUT_WIDTH / stageSize.width;
-    const renderedWidth = naturalSize.width * coverScale * zoom;
-    const renderedHeight = naturalSize.height * coverScale * zoom;
-    const left = stageSize.width / 2 - renderedWidth / 2 + position.x;
-    const top = stageSize.height / 2 - renderedHeight / 2 + position.y;
-    context.drawImage(
-      source,
-      left * outputScale,
-      top * outputScale,
-      renderedWidth * outputScale,
-      renderedHeight * outputScale,
-    );
-    onConfirm(canvas.toDataURL('image/jpeg', 0.9));
+      const outputScale = OUTPUT_WIDTH / stageSize.width;
+      const renderedWidth = naturalSize.width * coverScale * zoom;
+      const renderedHeight = naturalSize.height * coverScale * zoom;
+      const left = stageSize.width / 2 - renderedWidth / 2 + position.x;
+      const top = stageSize.height / 2 - renderedHeight / 2 + position.y;
+      context.drawImage(
+        source,
+        left * outputScale,
+        top * outputScale,
+        renderedWidth * outputScale,
+        renderedHeight * outputScale,
+      );
+      onConfirm(canvas.toDataURL('image/jpeg', 0.9));
+    } catch (error) {
+      console.warn('封面图片裁剪失败，保留原图：', error);
+      onConfirm(image);
+    }
   };
 
   const renderedWidth = naturalSize ? naturalSize.width * coverScale * zoom : 0;
@@ -121,6 +155,7 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
         <img
           ref={imageRef}
           src={image}
+          crossOrigin="anonymous"
           alt="调整封面图片"
           draggable={false}
           onLoad={(event) => setNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
@@ -147,19 +182,7 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
         <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1.5 text-xs text-white">拖动图片调整位置</p>
       </div>
 
-      <label className="block">
-        <span className="mb-2 flex items-center justify-between text-sm text-secondary"><span>图片大小</span><span className="font-mono-digit">{Math.round(zoom * 100)}%</span></span>
-        <input
-          type="range"
-          min="1"
-          max="3"
-          step="0.01"
-          value={zoom}
-          onChange={(event) => handleZoom(Number(event.target.value))}
-          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-divider accent-accent"
-          aria-label="调整图片大小"
-        />
-      </label>
+      <p className="text-center text-xs text-secondary">单指拖动图片 · 双指捏合缩放</p>
 
       <div className="flex gap-2">
         <button type="button" onClick={onCancel} className="flex flex-1 items-center justify-center gap-2 rounded-input bg-bg-input py-3 text-text-secondary">
