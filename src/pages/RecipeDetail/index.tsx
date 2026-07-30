@@ -855,20 +855,37 @@ export function RecipeDetail() {
                             <span className="pl-1.5 text-[10px]">计时</span>
                             <input
                               type="number"
-                              min="1"
+                              min="0"
                               step="1"
-                              value={Math.max(1, Math.round(step.detectedDurationSeconds / 60))}
+                              value={Math.floor(step.detectedDurationSeconds / 60)}
                               onChange={(event) => {
                                 const minutes = Number(event.target.value);
-                                if (!Number.isFinite(minutes) || minutes <= 0) return;
+                                if (!Number.isFinite(minutes) || minutes < 0) return;
                                 setEditSteps((prev) => prev.map((s, i) => i === index
-                                  ? { ...s, hasTimer: true, detectedDurationSeconds: Math.round(minutes * 60), timerManuallyEdited: true }
+                                  ? { ...s, hasTimer: true, detectedDurationSeconds: Math.floor(minutes) * 60 + (s.detectedDurationSeconds % 60), timerManuallyEdited: true }
                                   : s));
                               }}
                               aria-label={`步骤 ${index + 1} 的计时分钟数`}
                               className="mx-1 w-9 border-b border-accent/40 bg-transparent px-0.5 text-center outline-none"
                             />
-                            <span className="pr-1 whitespace-nowrap">分钟</span>
+                            <span className="whitespace-nowrap">分</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max="59"
+                              step="1"
+                              value={step.detectedDurationSeconds % 60}
+                              onChange={(event) => {
+                                const seconds = Number(event.target.value);
+                                if (!Number.isFinite(seconds) || seconds < 0 || seconds > 59) return;
+                                setEditSteps((prev) => prev.map((s, i) => i === index
+                                  ? { ...s, hasTimer: true, detectedDurationSeconds: Math.floor(s.detectedDurationSeconds / 60) * 60 + Math.floor(seconds), timerManuallyEdited: true }
+                                  : s));
+                              }}
+                              aria-label={`步骤 ${index + 1} 的计时秒数`}
+                              className="mx-1 w-9 border-b border-accent/40 bg-transparent px-0.5 text-center outline-none"
+                            />
+                            <span className="pr-1 whitespace-nowrap">秒</span>
                             <button
                               type="button"
                               onClick={() => setEditSteps((prev) => prev.map((s, i) => i === index
