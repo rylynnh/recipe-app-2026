@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Drumstick, Egg, Fish, Leaf, Search, Soup, Utensils, Wheat } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SearchBar } from '../../components/SearchBar';
@@ -83,6 +83,15 @@ export function Home() {
   const [searchDraft, setSearchDraft] = useState('');
   const navigate = useNavigate();
   const { searchRecipes, searchHistory } = useRecipesStore();
+  useEffect(() => {
+    const query = searchDraft.trim();
+    if (!query) {
+      setSearchQuery('');
+      return;
+    }
+    const timer = window.setTimeout(() => setSearchQuery(query), 350);
+    return () => window.clearTimeout(timer);
+  }, [searchDraft]);
   const recipes = searchRecipes(searchQuery);
   const featured = recipes[0];
   const featuredIntro = featured ? recipeIntro(featured) : '';
