@@ -150,8 +150,8 @@ export function Category() {
               {filteredRecipes.length}
             </span>
             {showAllTags && (
-              <div className="absolute left-0 right-0 top-full z-20 border-b border-divider bg-card px-5 py-2 shadow-[0_8px_16px_rgba(40,35,28,0.08)]">
-                <div className="max-h-56 overflow-y-auto">
+              <div className="absolute left-0 right-0 top-full z-20 border-b border-divider bg-card px-5 py-3 shadow-[0_8px_16px_rgba(40,35,28,0.08)]">
+                <div className="flex max-h-56 flex-wrap gap-2 overflow-y-auto">
                   {relevantIngredientTags.map((tag) => {
                     const isSelected = selectedIngredients.includes(tag);
                     return (
@@ -159,11 +159,15 @@ export function Category() {
                         key={tag}
                         type="button"
                         onClick={() => handleIngredientToggle(tag)}
-                        className="flex w-full items-center justify-between border-b border-divider/70 py-3 text-left text-[14px] last:border-b-0"
-                        style={{ color: isSelected ? 'var(--color-accent)' : 'var(--color-text-primary)' }}
+                        className="rounded-full px-3 py-1.5 text-[12px] transition-colors"
+                        style={{
+                          backgroundColor: isSelected ? 'var(--color-accent-tint)' : 'transparent',
+                          color: isSelected ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                          fontWeight: isSelected ? 500 : 400,
+                          border: isSelected ? 'none' : '1px solid var(--color-divider)',
+                        }}
                       >
                         {tag}
-                        <span className="text-[12px]">{isSelected ? '已选' : ''}</span>
                       </button>
                     );
                   })}

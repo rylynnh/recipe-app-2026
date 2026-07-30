@@ -163,7 +163,7 @@ export function Home() {
               placeholder="搜索菜谱"
               aria-label="搜索菜谱"
               enterKeyHint="search"
-              className="h-9 w-full rounded-full border border-divider bg-transparent pl-8 pr-3 text-[12px] text-primary outline-none placeholder:text-secondary focus:border-accent"
+              className="h-9 w-full rounded-full border border-divider bg-transparent pl-8 pr-3 text-[16px] text-primary outline-none placeholder:text-secondary focus:border-accent sm:text-[12px]"
             />
           </form>
         </div>
