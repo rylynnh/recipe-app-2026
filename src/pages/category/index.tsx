@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { structureTags } from '../../data/mock';
 import { useRecipesStore } from '../../store/recipes';
 import Empty from '../../components/Empty';
@@ -12,6 +13,7 @@ export function Category() {
     const ingredient = searchParams.get('ingredient');
     return ingredient ? [ingredient] : [];
   });
+  const [showAllTags, setShowAllTags] = useState(false);
   const navigate = useNavigate();
   const { filterByStructure, filterByIngredient, recipes } = useRecipesStore();
 
@@ -24,6 +26,7 @@ export function Category() {
   const handleStructureSelect = (tagId: string) => {
     setSelectedStructure(tagId);
     setSelectedIngredients([]);
+    setShowAllTags(false);
   };
 
   const handleIngredientToggle = (ingredientName: string) => {
@@ -104,7 +107,7 @@ export function Category() {
         {/* Right main area */}
         <main className="flex-1 overflow-y-auto pb-6">
           {/* Ingredient chips row */}
-          <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
+          <div className="relative flex items-center gap-3 px-5 py-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
             <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {relevantIngredientTags.map((tag) => {
                 const isSelected = selectedIngredients.includes(tag);
@@ -134,9 +137,39 @@ export function Category() {
                 </button>
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => setShowAllTags((previous) => !previous)}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-divider text-secondary transition-colors hover:bg-background"
+              aria-label={showAllTags ? '收起全部标签' : '展开全部标签'}
+              aria-expanded={showAllTags}
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${showAllTags ? 'rotate-180' : ''}`} strokeWidth={1.6} />
+            </button>
             <span className="shrink-0 border-l border-divider pl-3 font-mono-digit text-[12px] text-secondary" aria-label={`当前筛选结果 ${filteredRecipes.length} 道`}>
               {filteredRecipes.length}
             </span>
+            {showAllTags && (
+              <div className="absolute left-0 right-0 top-full z-20 border-b border-divider bg-card px-5 py-2 shadow-[0_8px_16px_rgba(40,35,28,0.08)]">
+                <div className="max-h-56 overflow-y-auto">
+                  {relevantIngredientTags.map((tag) => {
+                    const isSelected = selectedIngredients.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleIngredientToggle(tag)}
+                        className="flex w-full items-center justify-between border-b border-divider/70 py-3 text-left text-[14px] last:border-b-0"
+                        style={{ color: isSelected ? 'var(--color-accent)' : 'var(--color-text-primary)' }}
+                      >
+                        {tag}
+                        <span className="text-[12px]">{isSelected ? '已选' : ''}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Recipe list */}
