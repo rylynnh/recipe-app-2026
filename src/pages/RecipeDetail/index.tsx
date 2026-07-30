@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bookmark, BookmarkCheck, Edit, Heart, Save, X, Camera, Plus, Trash2, Crop, Check, RotateCcw, Menu } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, Edit, Heart, Save, X, Camera, Plus, Trash2, Crop, Check, RotateCcw, Menu, Timer } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useTodosStore } from '../../store/todos';
 import { useFoodItemsStore } from '../../store/foodItems';
@@ -889,8 +889,10 @@ export function RecipeDetail() {
                               ? { ...s, hasTimer: true, detectedDurationSeconds: 60, timerManuallyEdited: true }
                               : s))}
                             className="mt-1.5 h-7 flex-shrink-0 rounded border border-accent/30 px-2 text-xs text-accent hover:bg-accent/10"
+                            title="添加计时器"
+                            aria-label={`为步骤 ${index + 1} 添加计时器`}
                           >
-                            + 计时
+                            <Timer className="h-4 w-4" strokeWidth={1.5} />
                           </button>
                         )}
                         {/* Camera button for step image */}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Edit2, Check, X } from 'lucide-react';
+import { RotateCcw, Edit2, Check, X } from 'lucide-react';
 import { formatDuration } from '../../utils/parser';
 
 interface TimerButtonProps {
@@ -128,17 +128,14 @@ export function TimerButton({ duration, stepId, onDurationChange }: TimerButtonP
     <div className="mt-2 flex items-center gap-2">
       <button
         onClick={handleToggle}
+        aria-label={isRunning ? '暂停计时' : '开始计时'}
         className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
           isRunning
             ? 'bg-secondary text-white'
             : 'bg-accent/10 text-accent hover:bg-accent/20'
         }`}
       >
-        {isRunning ? (
-          <><Pause className="w-4 h-4" />{formatDuration(remaining)}</>
-        ) : (
-          <><Play className="w-4 h-4" />{formatDuration(remaining)} 开启计时</>
-        )}
+        {formatDuration(remaining)}
       </button>
       <button
         onClick={handleStartEdit}
