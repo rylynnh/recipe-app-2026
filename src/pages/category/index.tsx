@@ -61,10 +61,10 @@ export function Category() {
         <h1 className="font-display text-[22px] font-medium text-primary">分类浏览</h1>
       </header>
 
-      <div className="flex h-[calc(100vh-61px)]">
+      <div className="flex h-[calc(100dvh-125px)]">
         {/* Left sidebar */}
         <aside
-          className="flex-shrink-0 overflow-y-auto pb-24"
+          className="flex-shrink-0 overflow-y-auto pb-4"
           style={{ width: '88px', borderRight: '0.5px solid var(--color-divider)' }}
         >
           {structureTags.map((tag) => {
@@ -101,7 +101,7 @@ export function Category() {
         </aside>
 
         {/* Right main area */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto pb-6">
           {/* Ingredient chips row */}
           <div className="px-5 pt-4 pb-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
             <div className="flex flex-wrap items-center gap-2">
