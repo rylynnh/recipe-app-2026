@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, Menu, Timer } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useFoodItemsStore } from '../../store/foodItems';
-import { detectDurationInText, parsePastedText } from '../../utils/nutrition';
+import { detectDurationInText, detectMainIngredients, parsePastedText } from '../../utils/nutrition';
 import { extractTextFromImages } from '../../utils/ocr';
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
@@ -58,6 +58,8 @@ export function AddRecipe() {
   const [ingredients, setIngredients] = useState<{ name: string; amount: number; unit: string; group?: string }[]>([]);
   const [steps, setSteps] = useState<ParsedStep[]>([]);
   const [_newItemGroup, set_newItemGroup] = useState('');
+  const [mainIngredients, setMainIngredients] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   // Image OCR
   const [showImageOCR, setShowImageOCR] = useState(false);
@@ -93,7 +95,11 @@ export function AddRecipe() {
     if (!pasteText.trim()) return;
     const result = parsePastedText(pasteText);
     if (result.title && !title) setTitle(result.title);
-    if (result.ingredients.length > 0) setIngredients(coalesceIngredientGroups(result.ingredients));
+    if (result.ingredients.length > 0) {
+      const parsedIngredients = coalesceIngredientGroups(result.ingredients);
+      setIngredients(parsedIngredients);
+      setMainIngredients((current) => Array.from(new Set([...current, ...detectMainIngredients(parsedIngredients)])));
+    }
     if (result.steps.length > 0) {
       setSteps(
         result.steps.map((step) => ({
@@ -170,7 +176,11 @@ export function AddRecipe() {
     if (!combined.trim()) return;
     const result = parsePastedText(combined);
     if (result.title && !title) setTitle(result.title);
-    if (result.ingredients.length > 0) setIngredients(coalesceIngredientGroups(result.ingredients));
+    if (result.ingredients.length > 0) {
+      const parsedIngredients = coalesceIngredientGroups(result.ingredients);
+      setIngredients(parsedIngredients);
+      setMainIngredients((current) => Array.from(new Set([...current, ...detectMainIngredients(parsedIngredients)])));
+    }
     if (result.steps.length > 0) {
       setSteps(
         result.steps.map((step) => ({
@@ -481,13 +491,23 @@ export function AddRecipe() {
       })),
       structureTag: category?.name || '荤菜',
       techniqueTags: [],
-      mainIngredient: [],
+      mainIngredient: mainIngredients,
       difficultyLevel: '入门',
       sourceType: showImageOCR && ocrText ? 'screenshot' : 'pasted_text',
       note: note || undefined,
     });
 
     navigate('/');
+  };
+
+  const detectedTagSuggestions = detectMainIngredients(ingredients);
+  const visibleTags = Array.from(new Set([...detectedTagSuggestions, ...mainIngredients]));
+  const addTag = () => {
+    const tag = tagInput.trim();
+    if (tag && !mainIngredients.includes(tag)) {
+      setMainIngredients((current) => [...current, tag]);
+    }
+    setTagInput('');
   };
 
   return (
@@ -593,6 +613,56 @@ export function AddRecipe() {
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}
             </select>
+          </div>
+
+          {/* Tags */}
+          <div className="card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <label className="text-sm font-medium text-primary">标签</label>
+              <span className="text-xs text-secondary">自动识别可修改</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {visibleTags.map((tag) => {
+                const selected = mainIngredients.includes(tag);
+                if (!selected) {
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setMainIngredients((current) => [...current, tag])}
+                      className="rounded-full px-3 py-1.5 text-xs transition-colors"
+                      style={{ border: '1px solid var(--color-divider)', color: 'var(--color-text-secondary)' }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                }
+                return (
+                  <span key={tag} className="relative inline-flex rounded-full px-3 py-1.5 pr-6 text-xs" style={{ border: '1px solid var(--color-divider)', backgroundColor: 'var(--color-accent-tint)', color: 'var(--color-accent)' }}>
+                    {tag}
+                    <button type="button" aria-label={`删除标签 ${tag}`} onClick={() => setMainIngredients((current) => current.filter((item) => item !== tag))} className="absolute right-1 top-1 grid h-3.5 w-3.5 place-items-center rounded-full text-secondary hover:bg-background">
+                      <X className="h-3 w-3" strokeWidth={1.8} />
+                    </button>
+                  </span>
+                );
+              })}
+              {visibleTags.length === 0 && <span className="text-xs text-secondary">识别食材后会自动显示标签</span>}
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={tagInput}
+                onChange={(event) => setTagInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addTag();
+                  }
+                }}
+                placeholder="手动添加标签"
+                className="min-w-0 flex-1 rounded-input bg-background px-3 py-2 text-sm text-primary outline-none ring-1 ring-divider focus:ring-accent"
+              />
+              <button type="button" onClick={addTag} className="rounded-input border border-divider px-3 text-sm text-secondary">添加</button>
+            </div>
           </div>
 
           {/* Servings */}
