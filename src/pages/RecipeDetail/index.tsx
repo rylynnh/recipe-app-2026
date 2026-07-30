@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bookmark, BookmarkCheck, Edit, Heart, Save, X, Camera, Plus, Trash2, Crop, Check, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, Edit, Heart, Save, X, Camera, Plus, Trash2, Crop, Check, RotateCcw, GripVertical } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useTodosStore } from '../../store/todos';
 import { useFoodItemsStore } from '../../store/foodItems';
@@ -11,6 +11,18 @@ import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDuratio
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
 import { resolveRecipeImage } from '../../utils/recipeImage';
+
+type EditableIngredient = { id: string; name: string; amount: number; unit: string; group?: string };
+type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
+
+function coalesceIngredientGroups(items: EditableIngredient[]) {
+  const groups = new Map<string, EditableIngredient[]>();
+  items.forEach((item) => {
+    const key = item.group || '__ungrouped__';
+    groups.set(key, [...(groups.get(key) || []), item]);
+  });
+  return Array.from(groups.values()).flat();
+}
 
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -31,8 +43,8 @@ export function RecipeDetail() {
   const [editCategoryId, setEditCategoryId] = useState('');
   const [editBaseServings, setEditBaseServings] = useState(1);
   const [editImage, setEditImage] = useState<string | undefined>();
-  const [editIngredients, setEditIngredients] = useState<{ id: string; name: string; amount: number; unit: string; group?: string }[]>([]);
-  const [editSteps, setEditSteps] = useState<{ id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; image?: string }[]>([]);
+  const [editIngredients, setEditIngredients] = useState<EditableIngredient[]>([]);
+  const [editSteps, setEditSteps] = useState<EditableStep[]>([]);
   const [editNote, setEditNote] = useState('');
   const [editMainIngredients, setEditMainIngredients] = useState<string[]>([]);
   const [editTagInput, setEditTagInput] = useState('');
@@ -48,6 +60,7 @@ export function RecipeDetail() {
 
   const [newIngGroup, setNewIngGroup] = useState('');
   const stepImageInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const draggedIngredientIndex = useRef<number | null>(null);
 
   const ASPECT_RATIO = 4 / 3;
   const MIN_SIZE = 60;
@@ -281,7 +294,7 @@ export function RecipeDetail() {
       setEditCategoryId(recipe.categoryId);
       setEditBaseServings(recipe.baseServings);
       setEditImage(recipe.image);
-      setEditIngredients(recipe.ingredients.map(ing => ({ ...ing })));
+      setEditIngredients(coalesceIngredientGroups(recipe.ingredients.map(ing => ({ ...ing }))));
       setEditSteps(recipe.steps.map(step => ({ ...step, detectedDurationSeconds: step.detectedDurationSeconds || 0 })));
       setEditNote(recipe.note || '');
       setEditMainIngredients(recipe.mainIngredient);
@@ -362,9 +375,23 @@ export function RecipeDetail() {
   };
 
   const updateEditIngredient = (id: string, field: string, value: any) => {
-    setEditIngredients(prev => prev.map(ing =>
-      ing.id === id ? { ...ing, [field]: field === 'amount' ? (parseFloat(value) || 0) : value } : ing
-    ));
+    setEditIngredients(prev => {
+      const next = prev.map(ing =>
+        ing.id === id ? { ...ing, [field]: field === 'amount' ? (parseFloat(value) || 0) : field === 'group' ? value || undefined : value } : ing
+      );
+      return field === 'group' ? coalesceIngredientGroups(next) : next;
+    });
+  };
+
+  const moveEditIngredient = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setEditIngredients((prev) => {
+      const next = [...prev];
+      const [dragged] = next.splice(fromIndex, 1);
+      const targetIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+      next.splice(targetIndex, 0, { ...dragged, group: prev[toIndex]?.group });
+      return coalesceIngredientGroups(next);
+    });
   };
 
   const removeEditStep = (id: string) => {
@@ -667,7 +694,7 @@ export function RecipeDetail() {
                       ))}
                     </select>
                     <button
-                      onClick={() => setEditIngredients((prev) => [...prev, { id: generateId(), name: '', amount: 0, unit: 'g', group: newIngGroup || undefined }])}
+                      onClick={() => setEditIngredients((prev) => coalesceIngredientGroups([...prev, { id: generateId(), name: '', amount: 0, unit: 'g', group: newIngGroup || undefined }]))}
                       className="flex items-center gap-1 text-xs text-accent hover:text-accent/70 transition-colors"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -690,7 +717,40 @@ export function RecipeDetail() {
                           <span className="flex-1 h-px bg-divider/50"></span>
                         </div>
                       )}
-                      <div className="flex items-center gap-1.5 py-1">
+                      <div
+                        className="flex items-center gap-1.5 py-1"
+                        data-edit-ingredient-index={index}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => {
+                          const fromIndex = draggedIngredientIndex.current;
+                          draggedIngredientIndex.current = null;
+                          if (fromIndex !== null) moveEditIngredient(fromIndex, index);
+                        }}
+                      >
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={() => { draggedIngredientIndex.current = index; }}
+                          onDragEnd={() => { draggedIngredientIndex.current = null; }}
+                          onPointerDown={(event) => {
+                            draggedIngredientIndex.current = index;
+                            event.currentTarget.setPointerCapture?.(event.pointerId);
+                          }}
+                          onPointerUp={(event) => {
+                            const fromIndex = draggedIngredientIndex.current;
+                            draggedIngredientIndex.current = null;
+                            const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-edit-ingredient-index]');
+                            const toIndex = row ? Number(row.dataset.editIngredientIndex) : NaN;
+                            if (fromIndex !== null && Number.isInteger(toIndex)) moveEditIngredient(fromIndex, toIndex);
+                          }}
+                          onPointerCancel={() => { draggedIngredientIndex.current = null; }}
+                          className="-ml-1 flex shrink-0 cursor-grab touch-none items-center gap-0.5 rounded border border-divider bg-background px-1 py-1.5 text-[10px] text-secondary active:cursor-grabbing"
+                          title="拖动调整顺序"
+                          aria-label={`拖动 ${ing.name || '食材'} 调整顺序`}
+                        >
+                          <GripVertical className="h-4 w-4" />
+                          <span>拖动</span>
+                        </button>
                         <input
                           type="text"
                           value={ing.name}
@@ -738,7 +798,7 @@ export function RecipeDetail() {
                     onClick={() => {
                       const name = prompt('输入新分组名称，如：面团、酱汁、腌料');
                       if (name && name.trim()) {
-                        setEditIngredients((prev) => [...prev, { id: generateId(), name: '', amount: 0, unit: 'g', group: name.trim() }]);
+                        setEditIngredients((prev) => coalesceIngredientGroups([...prev, { id: generateId(), name: '', amount: 0, unit: 'g', group: name.trim() }]));
                         setNewIngGroup(name.trim());
                       }
                     }}
@@ -776,7 +836,9 @@ export function RecipeDetail() {
                           onChange={(e) => {
                             const duration = detectDurationInText(e.target.value);
                             setEditSteps((prev) => prev.map((s, i) =>
-                              i === index ? { ...s, content: e.target.value, hasTimer: duration > 0, detectedDurationSeconds: duration } : s
+                              i === index
+                                ? (s.timerManuallyEdited ? { ...s, content: e.target.value } : { ...s, content: e.target.value, hasTimer: duration > 0, detectedDurationSeconds: duration })
+                                : s
                             ));
                           }}
                           placeholder={`步骤 ${index + 1}`}
@@ -784,9 +846,47 @@ export function RecipeDetail() {
                           className="flex-1 min-w-0 px-2 py-1.5 bg-background text-primary text-sm rounded resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
                         />
                         {step.hasTimer && (
-                          <span className="text-xs text-accent bg-accent/10 px-2 py-0.5 rounded whitespace-nowrap flex-shrink-0 mt-1.5">
-                            {Math.floor(step.detectedDurationSeconds / 60)}分钟
-                          </span>
+                          <div className="mt-1.5 flex h-8 flex-shrink-0 items-center rounded border border-accent/40 bg-accent/10 text-xs text-accent">
+                            <span className="pl-1.5 text-[10px]">计时</span>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={Math.max(1, Math.round(step.detectedDurationSeconds / 60))}
+                              onChange={(event) => {
+                                const minutes = Number(event.target.value);
+                                if (!Number.isFinite(minutes) || minutes <= 0) return;
+                                setEditSteps((prev) => prev.map((s, i) => i === index
+                                  ? { ...s, hasTimer: true, detectedDurationSeconds: Math.round(minutes * 60), timerManuallyEdited: true }
+                                  : s));
+                              }}
+                              aria-label={`步骤 ${index + 1} 的计时分钟数`}
+                              className="mx-1 w-9 border-b border-accent/40 bg-transparent px-0.5 text-center outline-none"
+                            />
+                            <span className="pr-1 whitespace-nowrap">分钟</span>
+                            <button
+                              type="button"
+                              onClick={() => setEditSteps((prev) => prev.map((s, i) => i === index
+                                ? { ...s, hasTimer: false, detectedDurationSeconds: 0, timerManuallyEdited: true }
+                                : s))}
+                              className="mr-0.5 rounded px-1 py-0.5 text-sm leading-none hover:bg-accent/20"
+                              title="移除计时器"
+                              aria-label={`移除步骤 ${index + 1} 的计时器`}
+                            >
+                              <span aria-hidden="true">×</span>
+                            </button>
+                          </div>
+                        )}
+                        {!step.hasTimer && (
+                          <button
+                            type="button"
+                            onClick={() => setEditSteps((prev) => prev.map((s, i) => i === index
+                              ? { ...s, hasTimer: true, detectedDurationSeconds: 60, timerManuallyEdited: true }
+                              : s))}
+                            className="mt-1.5 h-7 flex-shrink-0 rounded border border-accent/30 px-2 text-xs text-accent hover:bg-accent/10"
+                          >
+                            + 计时
+                          </button>
                         )}
                         {/* Camera button for step image */}
                         {step.image ? (
