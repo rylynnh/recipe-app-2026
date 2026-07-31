@@ -121,7 +121,7 @@ function isLikelyIngredientText(content: string): boolean {
   return Boolean(ingredient && ingredient.amount > 0 && ingredient.name.length <= 30);
 }
 
-function parseRecipe(html: string, sourceUrl: string) {
+async function parseRecipe(html: string, sourceUrl: string) {
   const { document } = parseHTML(html);
   const meta = (property: string) =>
     document.querySelector(`meta[property="${property}"], meta[name="${property}"]`)?.getAttribute("content") || undefined;
@@ -166,9 +166,15 @@ function parseRecipe(html: string, sourceUrl: string) {
     (item) => `${item.name}|${item.amount}|${item.unit}`,
   );
   const steps = rawSteps.filter((step) => !isLikelyIngredientText(step.content));
+  // Step images are served by Xiachufang's image host and may be blocked when
+  // displayed from another site. Keep a portable copy just as we do for covers.
+  const portableSteps = await Promise.all(steps.map(async (step) => {
+    const image = await embedRemoteImage(step.image);
+    return image ? { ...step, image } : step;
+  }));
 
-  if (ingredients.length === 0 || steps.length === 0) throw new Error("该页面未包含可导入的公开食材或步骤");
-  return { sourceUrl, title, author, description, tips, coverImage, ingredients, steps };
+  if (ingredients.length === 0 || portableSteps.length === 0) throw new Error("该页面未包含可导入的公开食材或步骤");
+  return { sourceUrl, title, author, description, tips, coverImage, ingredients, steps: portableSteps };
 }
 
 Deno.serve(async (req) => {
@@ -212,7 +218,7 @@ Deno.serve(async (req) => {
     }
     if (!page.ok) return respond({ ok: false, error: "下厨房页面无法访问或已删除" }, 422, origin);
     if (!isXiachufangUrl(page.url)) return respond({ ok: false, error: "链接未跳转到下厨房公开菜谱页" }, 400, origin);
-    const recipe = parseRecipe(await page.text(), page.url);
+    const recipe = await parseRecipe(await page.text(), page.url);
     recipe.sourceUrl = url;
     recipe.coverImage = await embedRemoteImage(recipe.coverImage);
     return respond({ ok: true, recipe }, 200, origin);

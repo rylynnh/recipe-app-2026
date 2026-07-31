@@ -847,7 +847,7 @@ export function RecipeDetail() {
                         {/* Camera button for step image */}
                         {step.image ? (
                           <div className="relative flex-shrink-0 mt-1">
-                            <img src={step.image} alt={`步骤${index + 1}`} className="w-10 h-10 rounded-lg object-cover" />
+                            <img src={step.image} alt={`步骤${index + 1}`} referrerPolicy="no-referrer" className="w-10 h-10 rounded-lg object-cover" />
                             <button
                               onClick={() => removeEditStepImage(index)}
                               className="absolute -top-1 -right-1 w-4 h-4 bg-black/60 text-white rounded-full flex items-center justify-center"
@@ -1090,6 +1090,7 @@ export function RecipeDetail() {
                       <img
                         src={step.image}
                         alt={`步骤${step.order}`}
+                        referrerPolicy="no-referrer"
                         className="mt-2 rounded-lg max-w-full max-h-48 object-cover"
                       />
                     )}
