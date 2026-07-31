@@ -784,8 +784,8 @@ export function RecipeDetail() {
                           className="flex-1 min-w-0 px-2 py-1.5 bg-background text-primary text-sm rounded resize-none focus:outline-none focus:ring-1 focus:ring-accent/50"
                         />
                         {step.hasTimer && (
-                          <div className="mt-1.5 flex h-8 flex-shrink-0 items-center rounded border border-accent/40 bg-accent/10 text-xs text-accent">
-                            <span className="pl-1.5 text-[10px]">计时</span>
+                          <div className="mt-1.5 flex h-8 w-[116px] flex-shrink-0 items-center gap-0.5 rounded border border-accent/40 bg-accent/10 px-1.5 text-xs text-accent">
+                            <Timer className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} aria-hidden="true" />
                             <input
                               type="number"
                               min="0"
@@ -799,9 +799,9 @@ export function RecipeDetail() {
                                   : s));
                               }}
                               aria-label={`步骤 ${index + 1} 的计时分钟数`}
-                              className="mx-1 w-9 border-b border-accent/40 bg-transparent px-0.5 text-center outline-none"
+                              className="w-6 min-w-0 border-b border-accent/40 bg-transparent px-0 text-center outline-none"
                             />
-                            <span className="whitespace-nowrap">分</span>
+                            <span className="font-mono-digit text-accent/70">:</span>
                             <input
                               type="number"
                               min="0"
@@ -816,15 +816,14 @@ export function RecipeDetail() {
                                   : s));
                               }}
                               aria-label={`步骤 ${index + 1} 的计时秒数`}
-                              className="mx-1 w-9 border-b border-accent/40 bg-transparent px-0.5 text-center outline-none"
+                              className="w-6 min-w-0 border-b border-accent/40 bg-transparent px-0 text-center outline-none"
                             />
-                            <span className="pr-1 whitespace-nowrap">秒</span>
                             <button
                               type="button"
                               onClick={() => setEditSteps((prev) => prev.map((s, i) => i === index
                                 ? { ...s, hasTimer: false, detectedDurationSeconds: 0, timerManuallyEdited: true }
                                 : s))}
-                              className="mr-0.5 rounded px-1 py-0.5 text-sm leading-none hover:bg-accent/20"
+                              className="ml-auto rounded px-1 py-0.5 text-sm leading-none hover:bg-accent/20"
                               title="移除计时器"
                               aria-label={`移除步骤 ${index + 1} 的计时器`}
                             >
