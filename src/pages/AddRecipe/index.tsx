@@ -8,6 +8,7 @@ import { extractTextFromImages } from '../../utils/ocr';
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
 import { CoverImageEditor } from '../../components/CoverImageEditor';
+import { importXiachufangRecipe } from '../../lib/xiachufangImport';
 
 interface ParsedStep {
   content: string;
@@ -53,6 +54,10 @@ export function AddRecipe() {
 
   // Paste text
   const [pasteText, setPasteText] = useState('');
+  const [xiachufangUrl, setXiachufangUrl] = useState('');
+  const [isImportingXiachufang, setIsImportingXiachufang] = useState(false);
+  const [xiachufangImportError, setXiachufangImportError] = useState('');
+  const [xiachufangSource, setXiachufangSource] = useState<{ url: string; author?: string } | null>(null);
 
   // Parsed results
   const [ingredients, setIngredients] = useState<{ name: string; amount: number; unit: string; group?: string }[]>([]);
@@ -77,7 +82,8 @@ export function AddRecipe() {
   const draggedIngredientIndex = useRef<number | null>(null);
 
   const categoryOptions = categories.filter((c) => c.id !== 's1');
-  const inputClass = 'w-full px-4 py-3 bg-background text-primary rounded-input focus:outline-none focus:ring-2 focus:ring-accent/50';
+  // iOS Safari zooms the viewport when focusing controls smaller than 16px.
+  const inputClass = 'w-full px-4 py-3 text-base bg-background text-primary rounded-input focus:outline-none focus:ring-2 focus:ring-accent/50';
   const moveIngredient = (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex) return;
     setIngredients((prev) => {
@@ -114,6 +120,51 @@ export function AddRecipe() {
     if (result.ingredients.length === 0) issues.push('未识别到食材，请手动添加');
     if (result.steps.length === 0) issues.push('未识别到步骤，请手动添加');
     if (issues.length > 0) alert(issues.join('\n'));
+  };
+
+  const handleXiachufangImport = async () => {
+    if (!xiachufangUrl.trim() || isImportingXiachufang) return;
+    setIsImportingXiachufang(true);
+    setXiachufangImportError('');
+    try {
+      const recipe = await importXiachufangRecipe(xiachufangUrl.trim());
+      setPasteText([
+        recipe.title,
+        recipe.description,
+        '食材',
+        ...recipe.ingredients.map((ingredient) => [
+          ingredient.name,
+          ingredient.amount || '',
+          ingredient.unit,
+        ].filter(Boolean).join(' ')),
+        '步骤',
+        ...recipe.steps.map((step, index) => `${index + 1}. ${step.content}`),
+        recipe.tips ? '小贴士' : '',
+        recipe.tips || '',
+      ].filter(Boolean).join('\n'));
+      setTitle(recipe.title);
+      setIngredients(coalesceIngredientGroups(recipe.ingredients));
+      setSteps(recipe.steps.map((step) => ({
+        content: step.content,
+        image: step.image,
+        hasTimer: detectDurationInText(step.content) > 0,
+        detectedDurationSeconds: detectDurationInText(step.content),
+      })));
+      setMainIngredients(detectMainIngredients(recipe.ingredients));
+      if (recipe.coverImage) setCoverImage(recipe.coverImage);
+      setNote([
+        recipe.description,
+        recipe.tips ? `小贴士：${recipe.tips}` : '',
+        '来源：下厨房',
+        recipe.author ? `原作者：${recipe.author}` : '',
+        `原链接：${recipe.sourceUrl}`,
+      ].filter(Boolean).join('\n'));
+      setXiachufangSource({ url: recipe.sourceUrl, author: recipe.author });
+    } catch (error) {
+      setXiachufangImportError(error instanceof Error ? error.message : '下厨房链接导入失败，请重试。');
+    } finally {
+      setIsImportingXiachufang(false);
+    }
   };
 
   // --- Image OCR handlers ---
@@ -493,7 +544,8 @@ export function AddRecipe() {
       techniqueTags: [],
       mainIngredient: mainIngredients,
       difficultyLevel: '入门',
-      sourceType: showImageOCR && ocrText ? 'screenshot' : 'pasted_text',
+      sourceType: xiachufangSource ? 'link_xiachufang' : showImageOCR && ocrText ? 'screenshot' : 'pasted_text',
+      sourceSnapshot: xiachufangSource ? JSON.stringify(xiachufangSource) : undefined,
       note: note || undefined,
     });
 
@@ -678,16 +730,38 @@ export function AddRecipe() {
             />
           </div>
 
+          <div className="card p-4">
+            <label className="block text-sm font-medium text-primary mb-2">导入下厨房菜谱</label>
+            <p className="text-xs text-secondary mb-3">粘贴下厨房公开菜谱链接，自动填入食材、步骤和封面；导入后仍可在下方修改。</p>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={xiachufangUrl}
+                onChange={(event) => setXiachufangUrl(event.target.value)}
+                placeholder="https://www.xiachufang.com/recipe/..."
+                className={`${inputClass} min-w-0 flex-1`}
+                disabled={isImportingXiachufang}
+              />
+              <button
+                type="button"
+                onClick={handleXiachufangImport}
+                disabled={!xiachufangUrl.trim() || isImportingXiachufang}
+                className="shrink-0 rounded-input bg-accent px-4 py-2 text-sm text-white transition-colors hover:bg-accent/90 disabled:opacity-50"
+              >
+                {isImportingXiachufang ? '导入中…' : '导入'}
+              </button>
+            </div>
+            {xiachufangImportError && <p className="mt-2 text-xs text-danger">{xiachufangImportError}</p>}
+            {xiachufangSource && <p className="mt-2 text-xs text-secondary">已导入下厨房菜谱；请核对内容后再保存。</p>}
+          </div>
+
           {/* Paste complete text */}
           <div className="card p-4">
             <label className="block text-sm font-medium text-primary mb-2">粘贴完整文字</label>
-            <p className="text-xs text-secondary mb-3">
-              粘贴含食材和步骤的完整菜谱文字，点击解析后自动提取，结果可在下方编辑修改
-            </p>
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
-              placeholder={`粘贴菜谱文字，例如：\n\n油泼面\n\n高筋粉 500g\n盐 3g\n水 240g\n\n酱汁：\n姜 1片\n陈醋 30g\n\n先加水合无干粉，静置5分钟\n揉成条，均分成8个剂子\n面剂切面朝上揉成粗条，盘底抹油\n静置1小时`}
+              placeholder={'菜谱结构参考：\n原料 / 食材 / 材料\n做法 / 步骤\ntips / 小贴士 / 贴士 / 要点'}
               rows={10}
               className={`${inputClass} resize-none`}
             />
