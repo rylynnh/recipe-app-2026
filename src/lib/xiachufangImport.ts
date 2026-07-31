@@ -21,7 +21,7 @@ export async function importXiachufangRecipe(url: string): Promise<XiachufangImp
   const timeout = new Promise<never>((_, reject) => {
     timeoutId = window.setTimeout(
       () => reject(new Error('导入超时：下厨房页面暂时没有响应，请稍后重试或改用文字粘贴。')),
-      25_000,
+      35_000,
     );
   });
   const { data, error } = await Promise.race([request, timeout]).finally(() => {

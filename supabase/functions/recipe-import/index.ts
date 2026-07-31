@@ -78,13 +78,15 @@ async function embedRemoteImage(sourceUrl: string | undefined): Promise<string |
 function parseIngredient(text: string): Ingredient | null {
   const normalized = clean(text).replace(/\|/g, " ").replace(/[;,.\u3001\u3002\uff0c\uff1b]+$/g, "");
   if (!normalized) return null;
-  const fractionMatch = normalized.match(/^(.+?)\s+(\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?)\s*(.*)$/);
+  // Mobile Xiachufang markup may concatenate values, e.g. “泡打粉1.5克”.
+  // Whitespace between the ingredient name and amount is therefore optional.
+  const fractionMatch = normalized.match(/^(.+?)\s*(\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?)\s*(.*)$/);
   if (fractionMatch) {
     const parts = fractionMatch[2].split('/').map((part) => Number.parseFloat(part.trim()));
     const amount = parts[1] ? parts[0] / parts[1] : 0;
     return { name: clean(fractionMatch[1]), amount, unit: clean(fractionMatch[3]) };
   }
-  const match = normalized.match(/^(.+?)\s+(\d+(?:\.\d+)?(?:\s*[-~～]\s*\d+(?:\.\d+)?)?)\s*(.*)$/);
+  const match = normalized.match(/^(.+?)\s*(\d+(?:\.\d+)?(?:\s*[-~～]\s*\d+(?:\.\d+)?)?)\s*(.*)$/);
   if (!match) return { name: normalized, amount: 0, unit: "适量" };
   const amount = Number.parseFloat(match[2]);
   return { name: clean(match[1]), amount: Number.isFinite(amount) ? amount : 0, unit: clean(match[3]) || "适量" };
@@ -148,7 +150,7 @@ function parseRecipe(html: string, sourceUrl: string) {
   ));
   const rawSteps = unique(
     stepNodes.map((node) => {
-      const content = clean(node.querySelector("p, .text")?.textContent || node.textContent).replace(/^\d+[\.、\s]+/, "");
+      const content = clean(node.querySelector(".step-text, p, .text")?.textContent || node.textContent).replace(/^\d+[\.、\s]+/, "");
       return content ? { content, image: imageFrom(node.querySelector("img"), sourceUrl) } : null;
     }).filter((item): item is Step => Boolean(item?.content)),
     (item) => item.content,
@@ -191,7 +193,8 @@ Deno.serve(async (req) => {
     const targetUrl = new URL(url);
     targetUrl.hostname = "m.xiachufang.com";
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 18_000);
+    // First requests can include an Edge cold start; public pages can be slow too.
+    const timeoutId = setTimeout(() => controller.abort(), 28_000);
     let page: Response;
     try {
       page = await fetch(targetUrl.toString(), {
