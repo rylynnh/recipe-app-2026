@@ -30,11 +30,7 @@ export function Category() {
   };
 
   const handleIngredientToggle = (ingredientName: string) => {
-    setSelectedIngredients((prev) =>
-      prev.includes(ingredientName)
-        ? prev.filter((s) => s !== ingredientName)
-        : [...prev, ingredientName]
-    );
+    setSelectedIngredients((prev) => prev[0] === ingredientName ? [] : [ingredientName]);
   };
 
   const structureFiltered = filterByStructure(selectedStructure);

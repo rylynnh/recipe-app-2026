@@ -14,9 +14,15 @@ import {
 } from '../lib/supabaseSync';
 
 function normalizeRecipe(r: any): Recipe {
+  const isLegacyColdDish = r.categoryId === 's4'
+    || r.category === '凉菜'
+    || r.structureTag === '凉菜'
+    || r.structureTags?.includes?.('凉菜');
   return {
     ...r,
-    structureTag: r.structureTag ?? r.structureTags?.[0] ?? r.category ?? '荤菜',
+    category: isLegacyColdDish ? '素菜' : r.category,
+    categoryId: isLegacyColdDish ? 's3' : r.categoryId,
+    structureTag: isLegacyColdDish ? '素菜' : (r.structureTag ?? r.structureTags?.[0] ?? r.category ?? '荤菜'),
     mainIngredient: r.mainIngredient ?? [],
     favorited: r.favorited ?? false,
   };
