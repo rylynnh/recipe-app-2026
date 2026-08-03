@@ -195,18 +195,18 @@ export function Home() {
             <div><p className="text-[10px] uppercase tracking-[0.15em] text-accent">The archive</p><h2 className="font-display mt-1 text-[25px] text-primary">最近收录</h2></div>
             <button type="button" onClick={() => navigate('/category')} className="flex items-center gap-1 text-[12px] text-secondary">全部 <ArrowRight className="h-3.5 w-3.5" /></button>
           </div>
-          <div className="grid grid-cols-[1.05fr_.95fr] gap-4">
-            {recent[0] && <RecipeCard recipe={recent[0]} variant="portrait" />}
-            <div className="space-y-5 pt-7">
-              {recent.slice(1, 3).map((recipe) => <RecipeCard key={recipe.id} recipe={recipe} variant="landscape" />)}
+          <div className="grid grid-cols-2 items-start gap-x-4">
+            <div className="space-y-6">
+              {recent.filter((_, index) => index % 2 === 0).map((recipe, index) => (
+                <RecipeCard key={recipe.id} recipe={recipe} variant={index % 2 === 0 ? 'portrait' : 'landscape'} />
+              ))}
+            </div>
+            <div className="space-y-6 pt-10">
+              {recent.filter((_, index) => index % 2 === 1).map((recipe, index) => (
+                <RecipeCard key={recipe.id} recipe={recipe} variant={index % 2 === 0 ? 'landscape' : 'portrait'} />
+              ))}
             </div>
           </div>
-          {recent.slice(3, 6).length > 0 && <div className="mt-7 grid grid-cols-[1.05fr_.95fr] gap-4 border-t border-divider pt-7">
-            {recent[3] && <RecipeCard recipe={recent[3]} variant="portrait" />}
-            <div className="space-y-5 pt-7">
-              {recent.slice(4, 6).map((recipe) => <RecipeCard key={recipe.id} recipe={recipe} variant="landscape" />)}
-            </div>
-          </div>}
         </section>}
 
         {ingredients.length > 0 && <section className="border-y border-divider py-8">
