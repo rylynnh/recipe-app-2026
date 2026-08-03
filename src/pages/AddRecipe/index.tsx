@@ -87,6 +87,7 @@ export function AddRecipe() {
   // Step image refs
   const stepImageInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const draggedIngredientIndex = useRef<number | null>(null);
+  const draggedStepIndex = useRef<number | null>(null);
 
   const categoryOptions = categories.filter((c) => c.id !== 's1');
   // iOS Safari zooms the viewport when focusing controls smaller than 16px.
@@ -127,6 +128,16 @@ export function AddRecipe() {
     if (result.ingredients.length === 0) issues.push('未识别到食材，请手动添加');
     if (result.steps.length === 0) issues.push('未识别到步骤，请手动添加');
     if (issues.length > 0) alert(issues.join('\n'));
+  };
+
+  const moveStep = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setSteps((prev) => {
+      const next = [...prev];
+      const [dragged] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, dragged);
+      return next;
+    });
   };
 
   const handleXiachufangImport = async () => {
@@ -1041,9 +1052,30 @@ export function AddRecipe() {
               </div>
               <div className="space-y-3">
                 {steps.map((step, index) => (
-                  <div key={index}>
+                  <div key={index} data-step-index={index}>
                     <div className="flex items-start gap-2">
-                      <span className="w-6 h-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-medium flex-shrink-0 mt-1.5">
+                      <span
+                        className="mt-1.5 flex h-6 w-6 flex-shrink-0 touch-none cursor-grab items-center justify-center rounded-full bg-accent/10 text-xs font-medium text-accent active:cursor-grabbing"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`拖动排序步骤 ${index + 1}`}
+                        onPointerDown={(event) => {
+                          event.preventDefault();
+                          draggedStepIndex.current = index;
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                        }}
+                        onPointerMove={(event) => {
+                          const fromIndex = draggedStepIndex.current;
+                          if (fromIndex === null) return;
+                          const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-step-index]');
+                          const toIndex = target ? Number(target.dataset.stepIndex) : NaN;
+                          if (!Number.isInteger(toIndex) || toIndex === fromIndex) return;
+                          moveStep(fromIndex, toIndex);
+                          draggedStepIndex.current = toIndex;
+                        }}
+                        onPointerUp={() => { draggedStepIndex.current = null; }}
+                        onPointerCancel={() => { draggedStepIndex.current = null; }}
+                      >
                         {index + 1}
                       </span>
                       <textarea
