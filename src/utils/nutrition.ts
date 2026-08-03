@@ -115,6 +115,9 @@ export function parsePastedText(text: string): {
     if (/\d+(?:\.\d+)?\s*(?:g|克|kg|千克|ml|毫升|l|升|个|勺|茶匙|汤匙|碗|杯|片|块|根|条|颗|瓣|把|匙|只|头|段|撮|滴|圈|层|张|枚|包|袋|盒|罐|瓶|斤|两|磅|oz|lb|适量|少许|若干)/i.test(trimmed)) {
       if (trimmed.length < 35 && !stepStartVerbs.test(trimmed)) return true;
     }
+    if (/(?:半|[一二三四五六七八九十]+)\s*(?:克|斤|两)\s*$/.test(trimmed)) {
+      if (trimmed.length < 35 && !stepStartVerbs.test(trimmed)) return true;
+    }
     if (/(?:适量|少许|若干|一点点)$/.test(trimmed)) return true;
     return false;
   };
@@ -194,9 +197,14 @@ export function parsePastedText(text: string): {
 
     const makeIngredient = (name: string, amount: number, unit: string) => {
       // Chinese market weight is more useful in a precise recipe as grams.
-      if (unit === '斤') return { name, amount: Math.round(amount * 500), unit: 'g', group };
-      if (unit === '两') return { name, amount: Math.round(amount * 50), unit: 'g', group };
-      return { name, amount, unit, group };
+      const normalizedUnit = unit.trim();
+      if (normalizedUnit === '克') return { name, amount, unit: 'g', group };
+      if (normalizedUnit === '斤') return { name, amount: Math.round(amount * 500), unit: 'g', group };
+      if (normalizedUnit === '两') return { name, amount: Math.round(amount * 50), unit: 'g', group };
+      if (['kg', 'KG', '千克', '公斤'].includes(normalizedUnit)) {
+        return { name, amount: Math.round(amount * 1000), unit: 'g', group };
+      }
+      return { name, amount, unit: normalizedUnit, group };
     };
 
     // Common Chinese half quantities: 半斤、半茶匙、小半瓷勺、一半勺.
@@ -207,6 +215,19 @@ export function parsePastedText(text: string): {
       const unit = halfMatch[3].trim();
       if (name && name.length <= 20 && !['小时', '分钟', '秒', '度', '℃'].includes(unit)) {
         return makeIngredient(name, 0.5, unit);
+      }
+    }
+
+    // Simple Chinese numerals, e.g. “盐一克” or “面粉二两”.
+    const chineseAmounts: Record<string, number> = {
+      一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5,
+      六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
+    };
+    const chineseAmountMatch = trimmed.match(/^([\u4e00-\u9fa5a-zA-Z/\s\(\)（）]+?)\s*([一二三四五六七八九十])\s*(克|斤|两|千克|公斤)\s*$/);
+    if (chineseAmountMatch) {
+      const name = chineseAmountMatch[1].trim();
+      if (name && name.length <= 20) {
+        return makeIngredient(name, chineseAmounts[chineseAmountMatch[2]], chineseAmountMatch[3]);
       }
     }
 
@@ -244,7 +265,7 @@ export function parsePastedText(text: string): {
         }
         const name = parts.slice(0, nameEnd).join(' ');
         if (name && name.length <= 20 && !['小时', '分钟', '秒'].includes(lastPart)) {
-          return { name, amount, unit: lastPart, group };
+          return makeIngredient(name, amount, lastPart);
         }
       }
     }
@@ -327,8 +348,22 @@ export function parsePastedText(text: string): {
       // Extract inline content after the colon
       const afterColonMatch = trimmed.match(/^[^:：]*[:：]\s*(.+)$/);
       const afterColon = afterColonMatch ? afterColonMatch[1].trim() : '';
+      const nextLine = lines[i + 1]?.trim() || '';
+      const knownIngredientGroups = [
+        '原料', '主料', '辅料', '配料', '调料', '调味料', '香料',
+        '酱汁', '酱料', '腌料', '馅料', '面团', '油酥', '装饰', '可省略',
+      ];
+      const inlineParts = afterColon.split(/[、，,；;]/).map((part) => part.trim()).filter(Boolean);
+      const inlineIngredientCount = inlineParts.filter((part) => Boolean(parseIngredientLine(part, subGroup))).length;
+      const hasStrongInlineIngredientEvidence = inlineIngredientCount > 0
+        && inlineIngredientCount >= Math.ceil(inlineParts.length / 2);
+      const hasStrongNextIngredientEvidence = Boolean(parseIngredientLine(nextLine, subGroup)) || looksLikeIngredient(nextLine);
+      const isKnownIngredientGroup = knownIngredientGroups.some((name) => subGroup.includes(name));
+      const shouldTreatAsIngredientGroup = hasStrongInlineIngredientEvidence
+        || (!afterColon && hasStrongNextIngredientEvidence)
+        || (isKnownIngredientGroup && (hasStrongInlineIngredientEvidence || hasStrongNextIngredientEvidence));
 
-      if (afterColon) {
+      if (afterColon && shouldTreatAsIngredientGroup) {
         // There's content after the colon — try to parse as inline ingredients
         const inlineIngs = parseInlineIngredients(afterColon, subGroup);
         if (inlineIngs.length > 0) {
@@ -341,25 +376,30 @@ export function parsePastedText(text: string): {
       }
 
       // No inline content or couldn't parse as ingredients — check next line
-      const nextLine = lines[i + 1]?.trim() || '';
-      if (looksLikeIngredient(nextLine) || parseIngredientLine(nextLine)) {
+      if (!afterColon && shouldTreatAsIngredientGroup) {
         currentGroup = subGroup;
         inIngredients = true;
         inSteps = false;
         continue;
       }
 
-      // If next line starts with action verbs or is long, this might be a step header
-      if (stepStartVerbs.test(nextLine) || nextLine.length > 25) {
-        // Treat this whole thing as a step
+      // In a steps section, a colon is ordinary prose unless ingredient evidence is strong.
+      if (inSteps || stepStartVerbs.test(afterColon || nextLine) || (afterColon || nextLine).length > 25) {
         steps.push(trimmed);
         continue;
       }
 
-      // Default: treat as ingredient group header, wait for next lines
-      currentGroup = subGroup;
-      inIngredients = true;
-      inSteps = false;
+      // Ambiguous colon lines retain their current section instead of forcing
+      // the parser into ingredients. This prevents later steps from being moved.
+      if (inIngredients && isKnownIngredientGroup) {
+        currentGroup = subGroup;
+      } else if (!hasExplicitSection && !title) {
+        title = trimmed;
+      } else {
+        steps.push(trimmed);
+        inSteps = true;
+        inIngredients = false;
+      }
       continue;
     }
 

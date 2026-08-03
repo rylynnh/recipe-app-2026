@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, Menu, Timer } from 'lucide-react';
+import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, Menu, Timer, Save } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useFoodItemsStore } from '../../store/foodItems';
 import { detectDurationInText, detectMainIngredients, parsePastedText } from '../../utils/nutrition';
@@ -572,6 +572,15 @@ export function AddRecipe() {
           <ArrowLeft className="w-5 h-5 text-primary" />
         </button>
         <h1 className="font-display text-xl font-medium text-primary">添加菜谱</h1>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="ml-auto p-2 -mr-2 rounded-full text-accent hover:bg-divider/50 transition-colors"
+          title="保存菜谱"
+          aria-label="保存菜谱"
+        >
+          <Save className="w-5 h-5" strokeWidth={1.6} />
+        </button>
       </header>
 
       <main className="px-4 py-4">
