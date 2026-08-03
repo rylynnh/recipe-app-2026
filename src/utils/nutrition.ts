@@ -140,6 +140,27 @@ export function parsePastedText(text: string): {
     return headerPart;
   };
 
+  /** Keep commas and semicolons inside preparation notes together. */
+  const splitIngredientsOutsideBrackets = (value: string): string[] => {
+    const items: string[] = [];
+    let current = '';
+    let bracketDepth = 0;
+
+    for (const char of value) {
+      if ('(（[【'.includes(char)) bracketDepth += 1;
+      if (bracketDepth === 0 && '、，,；;'.includes(char)) {
+        if (current.trim()) items.push(current.trim());
+        current = '';
+        continue;
+      }
+      current += char;
+      if (')）]】'.includes(char)) bracketDepth = Math.max(0, bracketDepth - 1);
+    }
+
+    if (current.trim()) items.push(current.trim());
+    return items;
+  };
+
   // Parse inline ingredients from text after a group header colon
   // e.g., "配菜：黄豆芽 小油菜 大葱末 蒜末" → ["黄豆芽", "小油菜", "大葱末", "蒜末"]
   const parseInlineIngredients = (text: string, group?: string): { name: string; amount: number; unit: string; group?: string }[] => {
@@ -151,7 +172,7 @@ export function parsePastedText(text: string): {
     // First, check if the text contains multiple ingredients separated by punctuation (、，;)
     // If so, split and parse each part separately
     if (/[、，,；;]/.test(trimmed)) {
-      const parts = trimmed.split(/[、，,；;]/).filter(s => s.trim().length > 0);
+      const parts = splitIngredientsOutsideBrackets(trimmed);
       if (parts.length > 1) {
         for (const part of parts) {
           const parsed = parseIngredientLine(part.trim(), group);
@@ -169,6 +190,13 @@ export function parsePastedText(text: string): {
     const standardParsed = parseIngredientLine(trimmed, group);
     if (standardParsed) {
       results.push(standardParsed);
+      return results;
+    }
+
+    // An inline item may legitimately omit a quantity, such as
+    // "黄栀子皮（去籽，可选）". Preserve the whole parenthesized note.
+    if (trimmed.length <= 30 && !stepStartVerbs.test(trimmed)) {
+      results.push({ name: trimmed, amount: 0, unit: '', group });
       return results;
     }
 
@@ -353,7 +381,7 @@ export function parsePastedText(text: string): {
         '原料', '主料', '辅料', '配料', '调料', '调味料', '香料',
         '酱汁', '酱料', '腌料', '馅料', '面团', '油酥', '装饰', '可省略',
       ];
-      const inlineParts = afterColon.split(/[、，,；;]/).map((part) => part.trim()).filter(Boolean);
+      const inlineParts = splitIngredientsOutsideBrackets(afterColon);
       const inlineIngredientCount = inlineParts.filter((part) => Boolean(parseIngredientLine(part, subGroup))).length;
       const hasStrongInlineIngredientEvidence = inlineIngredientCount > 0
         && inlineIngredientCount >= Math.ceil(inlineParts.length / 2);
@@ -407,7 +435,7 @@ export function parsePastedText(text: string): {
     if (inIngredients) {
       // First, check if the line contains multiple ingredients separated by punctuation
       if (/[、，,；;]/.test(trimmed)) {
-        const parts = trimmed.split(/[、，,；;]/).filter(s => s.trim().length > 0);
+        const parts = splitIngredientsOutsideBrackets(trimmed);
         if (parts.length > 1) {
           let parsedAny = false;
           for (const part of parts) {
@@ -459,13 +487,22 @@ export function parsePastedText(text: string): {
 
       // Short text without quantity in ingredient section — could be inline ingredient list
       // e.g., "黄豆芽 小油菜 大葱末 蒜末"
-      const inlineItems = trimmed.split(/[\s,，、]+/).filter(s => s.trim().length > 0);
+      const inlineItems = splitIngredientsOutsideBrackets(trimmed)
+        .flatMap((part) => part.split(/\s+/))
+        .filter(s => s.trim().length > 0);
       if (inlineItems.length >= 2 && inlineItems.every(item => item.length < 15 && !stepStartVerbs.test(item))) {
         for (const item of inlineItems) {
           if (item.length >= 2) {
             ingredients.push({ name: item.trim(), amount: 0, unit: '', group: currentGroup });
           }
         }
+        continue;
+      }
+
+      // A short standalone line inside an explicit ingredient section is still
+      // an ingredient, even if it only contains a parenthesized prep note.
+      if (trimmed.length <= 30 && !stepStartVerbs.test(trimmed)) {
+        ingredients.push({ name: trimmed, amount: 0, unit: '', group: currentGroup });
         continue;
       }
     }
