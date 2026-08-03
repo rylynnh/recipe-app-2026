@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, Menu, Timer, Save } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
@@ -8,7 +8,9 @@ import { extractTextFromImages } from '../../utils/ocr';
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
 import { CoverImageEditor } from '../../components/CoverImageEditor';
+import { AdminPinDialog } from '../../components/AdminPinDialog';
 import { importXiachufangRecipe } from '../../lib/xiachufangImport';
+import { useAdminGate } from '../../hooks/useAdminGate';
 
 interface ParsedStep {
   content: string;
@@ -37,6 +39,11 @@ export function AddRecipe() {
   const navigate = useNavigate();
   const addRecipe = useRecipesStore((state) => state.addRecipe);
   const { categories } = useFoodItemsStore();
+  const { pinDialogOpen, requireAdmin, cancelAdminUnlock, continueAfterUnlock } = useAdminGate();
+
+  useEffect(() => {
+    requireAdmin(() => undefined);
+  }, [requireAdmin]);
 
   const [title, setTitle] = useState('');
   const [coverImage, setCoverImage] = useState<string>('');
@@ -505,18 +512,8 @@ export function AddRecipe() {
   };
 
   // --- Submit ---
-  const handleSubmit = () => {
+  const saveRecipe = () => {
     const category = categoryOptions.find((c) => c.id === categoryId);
-    const missing: string[] = [];
-    if (!title.trim()) missing.push('菜谱名称');
-    if (!categoryId) missing.push('分类');
-    if (ingredients.length === 0) missing.push('食材');
-    if (steps.length === 0) missing.push('步骤');
-    if (missing.length > 0) {
-      alert(`请填写：${missing.join('、')}`);
-      return;
-    }
-
     addRecipe({
       title,
       image: coverImage || undefined,
@@ -548,8 +545,21 @@ export function AddRecipe() {
       sourceSnapshot: xiachufangSource ? JSON.stringify(xiachufangSource) : undefined,
       note: note || undefined,
     });
-
     navigate('/');
+  };
+
+  const handleSubmit = () => {
+    const missing: string[] = [];
+    if (!title.trim()) missing.push('菜谱名称');
+    if (!categoryId) missing.push('分类');
+    if (ingredients.length === 0) missing.push('食材');
+    if (steps.length === 0) missing.push('步骤');
+    if (missing.length > 0) {
+      alert(`请填写：${missing.join('、')}`);
+      return;
+    }
+
+    requireAdmin(saveRecipe);
   };
 
   const detectedTagSuggestions = detectMainIngredients(ingredients);
@@ -1172,6 +1182,11 @@ export function AddRecipe() {
           </button>
         </div>
       </main>
+      <AdminPinDialog
+        open={pinDialogOpen}
+        onCancel={cancelAdminUnlock}
+        onUnlocked={continueAfterUnlock}
+      />
     </div>
   );
 }

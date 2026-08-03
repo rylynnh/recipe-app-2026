@@ -12,6 +12,8 @@ import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
 import { resolveRecipeImage } from '../../utils/recipeImage';
 import { CoverImageEditor } from '../../components/CoverImageEditor';
+import { AdminPinDialog } from '../../components/AdminPinDialog';
+import { useAdminGate } from '../../hooks/useAdminGate';
 
 type EditableIngredient = { id: string; name: string; amount: number; unit: string; group?: string };
 type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
@@ -31,6 +33,7 @@ export function RecipeDetail() {
   const { getRecipeById, updateRecipe, deleteRecipe, toggleFavorite, favoriteIds } = useRecipesStore();
   const { addTodo, getTodoByRecipeId, toggleTodo } = useTodosStore();
   const { foodItems, unitConversions, categories } = useFoodItemsStore();
+  const { pinDialogOpen, requireAdmin, cancelAdminUnlock, continueAfterUnlock } = useAdminGate();
 
   const recipe = getRecipeById(id || '');
   const isFavorited = recipe ? favoriteIds.includes(recipe.id) : false;
@@ -370,6 +373,9 @@ export function RecipeDetail() {
   const handleCancelEdit = () => {
     setIsEditing(false);
   };
+
+  const requestEditing = () => requireAdmin(() => setIsEditing(true));
+  const requestDeleteConfirmation = () => requireAdmin(() => setShowDeleteConfirm(true));
 
   const removeEditIngredient = (id: string) => {
     setEditIngredients(prev => prev.filter(ing => ing.id !== id));
@@ -901,7 +907,7 @@ export function RecipeDetail() {
             {/* Delete button */}
             <div className="pt-2">
               <button
-                onClick={() => setShowDeleteConfirm(true)}
+                onClick={requestDeleteConfirmation}
                 className="w-full py-3 text-danger hover:bg-danger/5 rounded-input transition-colors"
               >
                 删除菜谱
@@ -935,6 +941,11 @@ export function RecipeDetail() {
             </div>
           </div>
         )}
+        <AdminPinDialog
+          open={pinDialogOpen}
+          onCancel={cancelAdminUnlock}
+          onUnlocked={continueAfterUnlock}
+        />
       </div>
     );
   }
@@ -952,7 +963,7 @@ export function RecipeDetail() {
           {recipe.title}
         </h1>
         <button
-          onClick={() => setIsEditing(true)}
+          onClick={requestEditing}
           className="p-2 hover:bg-divider/50 rounded-full transition-colors text-secondary"
           title="编辑菜谱"
         >
@@ -1124,6 +1135,11 @@ export function RecipeDetail() {
           <NutritionCard nutrition={nutrition.nutritionPer100g} />
         </div>
       </main>
+      <AdminPinDialog
+        open={pinDialogOpen}
+        onCancel={cancelAdminUnlock}
+        onUnlocked={continueAfterUnlock}
+      />
     </div>
   );
 }
