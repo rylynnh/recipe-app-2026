@@ -4,6 +4,7 @@ import { formatAmount } from './nutrition';
 
 const CANVAS_WIDTH = 1080;
 const PADDING = 64;
+const INGREDIENT_AMOUNT_X = 430;
 
 function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
   const lines: string[] = [];
@@ -64,7 +65,7 @@ export async function createRecipeShareImage(recipe: Recipe): Promise<Blob> {
 
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_WIDTH;
-  canvas.height = Math.max(1500, 640 + 360 + titleLines.length * 68 + ingredientLines.length * 48 + stepLines.length * 46 + recipe.steps.length * 38);
+  canvas.height = Math.max(1700, 640 + 390 + titleLines.length * 68 + recipe.ingredients.length * 72 + stepLines.length * 54 + recipe.steps.length * 42);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('无法创建分享图片');
   ctx.fillStyle = '#F8F6F2'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -78,20 +79,39 @@ export async function createRecipeShareImage(recipe: Recipe): Promise<Blob> {
   y += 28; ctx.fillStyle = '#77726B'; ctx.font = '24px "PingFang SC", "Microsoft YaHei", sans-serif'; ctx.fillText(tagText, PADDING, y); y += 58;
   ctx.strokeStyle = '#DDD7CE'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(CANVAS_WIDTH - PADDING, y); ctx.stroke(); y += 56;
   ctx.fillStyle = '#242321'; ctx.font = '30px "Songti SC", "STSong", serif'; ctx.fillText('食材', PADDING, y); y += 48;
-  ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif'; ctx.fillStyle = '#373431';
+  ctx.font = '34px "PingFang SC", "Microsoft YaHei", sans-serif'; ctx.fillStyle = '#373431';
+  y -= 48;
+  ctx.fillStyle = '#F8F6F2'; ctx.fillRect(PADDING - 8, y - 48, 220, 64);
+  ctx.fillStyle = '#A87945'; ctx.font = '40px "Songti SC", "STSong", serif'; ctx.fillText('\u98DF\u6750', PADDING, y);
+  y += 60;
   recipe.ingredients.forEach((ingredient) => {
-    const text = `${ingredient.name}${ingredient.amount || ingredient.unit ? `  ${ingredient.amount ? formatAmount(ingredient.amount) : ''}${ingredient.unit}` : ''}`;
-    wrapText(ctx, text, contentWidth).forEach((line) => { ctx.fillText(line, PADDING, y); y += 44; });
+    const amountText = ingredient.amount || ingredient.unit
+      ? `${ingredient.amount ? formatAmount(ingredient.amount) : ''}${ingredient.unit}`
+      : '';
+    const nameLines = wrapText(ctx, ingredient.name, INGREDIENT_AMOUNT_X - PADDING - 32);
+    const amountLines = wrapText(ctx, amountText, CANVAS_WIDTH - PADDING - INGREDIENT_AMOUNT_X);
+    const lineCount = Math.max(nameLines.length, amountLines.length);
+
+    for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
+      if (nameLines[lineIndex]) ctx.fillText(nameLines[lineIndex], PADDING, y);
+      if (amountLines[lineIndex]) ctx.fillText(amountLines[lineIndex], INGREDIENT_AMOUNT_X, y);
+      y += 52;
+    }
+    y += 4;
   });
   y += 32; ctx.strokeStyle = '#DDD7CE'; ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(CANVAS_WIDTH - PADDING, y); ctx.stroke(); y += 56;
   ctx.fillStyle = '#242321'; ctx.font = '30px "Songti SC", "STSong", serif'; ctx.fillText('步骤', PADDING, y); y += 52;
-  ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif';
+  ctx.font = '32px "PingFang SC", "Microsoft YaHei", sans-serif';
+  y -= 52;
+  ctx.fillStyle = '#F8F6F2'; ctx.fillRect(PADDING - 8, y - 48, 220, 68);
+  ctx.fillStyle = '#A87945'; ctx.font = '40px "Songti SC", "STSong", serif'; ctx.fillText('\u6B65\u9AA4', PADDING, y);
+  y += 64;
   recipe.steps.forEach((step, index) => {
-    ctx.fillStyle = '#A87945'; ctx.beginPath(); ctx.arc(PADDING + 16, y - 9, 16, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#FFFDF8'; ctx.font = '18px "Helvetica Neue", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(String(index + 1), PADDING + 16, y - 3); ctx.textAlign = 'left';
-    ctx.fillStyle = '#373431'; ctx.font = '28px "PingFang SC", "Microsoft YaHei", sans-serif';
-    wrapText(ctx, step.content, contentWidth - 68).forEach((line) => { ctx.fillText(line, PADDING + 62, y); y += 44; });
-    y += 24;
+    ctx.fillStyle = '#A87945'; ctx.beginPath(); ctx.arc(PADDING + 19, y - 12, 19, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#FFFDF8'; ctx.font = '20px "Helvetica Neue", Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(String(index + 1), PADDING + 19, y - 5); ctx.textAlign = 'left';
+    ctx.fillStyle = '#373431'; ctx.font = '32px "PingFang SC", "Microsoft YaHei", sans-serif';
+    wrapText(ctx, step.content, contentWidth - 76).forEach((line) => { ctx.fillText(line, PADDING + 72, y); y += 52; });
+    y += 28;
   });
   ctx.fillStyle = '#A87945'; ctx.font = '20px "Helvetica Neue", Arial, sans-serif'; ctx.letterSpacing = '2px'; ctx.fillText('MISE  ·  EVERYTHING IN ITS PLACE', PADDING, canvas.height - 44); ctx.letterSpacing = '0px';
   return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('图片生成失败')), 'image/jpeg', 0.92));
