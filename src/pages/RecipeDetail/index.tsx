@@ -14,7 +14,7 @@ import { resolveRecipeImage } from '../../utils/recipeImage';
 import { CoverImageEditor } from '../../components/CoverImageEditor';
 import { AdminPinDialog } from '../../components/AdminPinDialog';
 import { useAdminGate } from '../../hooks/useAdminGate';
-import { createRecipeShareImage, downloadShareImage } from '../../utils/recipeShare';
+import { createRecipeShareImage } from '../../utils/recipeShare';
 
 type EditableIngredient = { id: string; name: string; amount: number; unit: string; group?: string };
 type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
@@ -42,6 +42,7 @@ export function RecipeDetail() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isPreparingShare, setIsPreparingShare] = useState(false);
+  const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
 
   // Edit form state
   const [editTitle, setEditTitle] = useState('');
@@ -310,6 +311,10 @@ export function RecipeDetail() {
     }
   }, [isEditing, recipe]);
 
+  useEffect(() => () => {
+    if (shareImageUrl) URL.revokeObjectURL(shareImageUrl);
+  }, [shareImageUrl]);
+
   if (!recipe) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -337,11 +342,14 @@ export function RecipeDetail() {
       const blob = await createRecipeShareImage(recipe);
       const file = new File([blob], `${recipe.title}-MISE\u83DC\u8C31.jpg`, { type: 'image/jpeg' });
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-        await navigator.share({ title: recipe.title, text: `MISE \u83DC\u8C31\uFF5C${recipe.title}`, files: [file] });
-      } else {
-        downloadShareImage(blob, recipe.title);
-        alert('\u5DF2\u751F\u6210\u957F\u56FE\uFF0C\u8BF7\u4ECE\u4E0B\u8F7D\u5185\u5BB9\u4E2D\u53D1\u9001\u7ED9\u670B\u53CB\u3002');
+        try {
+          await navigator.share({ title: recipe.title, text: `MISE \u83DC\u8C31\uFF5C${recipe.title}`, files: [file] });
+          return;
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') return;
+        }
       }
+      setShareImageUrl(URL.createObjectURL(blob));
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       alert(error instanceof Error ? error.message : '\u5206\u4EAB\u56FE\u7247\u751F\u6210\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002');
@@ -1165,6 +1173,25 @@ export function RecipeDetail() {
           <NutritionCard nutrition={nutrition.nutritionPer100g} />
         </div>
       </main>
+      {shareImageUrl ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/45 p-3 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label={'\u5206\u4EAB\u83DC\u8C31\u957F\u56FE'}>
+          <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[20px] bg-background p-5 shadow-xl sm:rounded-[20px]">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-[20px] text-primary">{'\u4FDD\u5B58\u83DC\u8C31\u957F\u56FE'}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-secondary">{'\u957F\u6309\u56FE\u7247\u5373\u53EF\u4FDD\u5B58\u5230\u76F8\u518C\uFF0C\u518D\u4ECE\u5FAE\u4FE1\u53D1\u9001\u7ED9\u670B\u53CB\u3002'}</p>
+              </div>
+              <button onClick={() => setShareImageUrl(null)} className="rounded-full p-2 text-secondary hover:bg-divider/50" aria-label={'\u5173\u95ED'}>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <img src={shareImageUrl} alt={`${recipe.title} \u83DC\u8C31\u957F\u56FE`} className="w-full rounded-[6px] bg-divider" />
+            <a href={shareImageUrl} target="_blank" rel="noreferrer" className="mt-4 flex h-11 items-center justify-center rounded-[6px] border border-divider text-sm text-primary">
+              {'\u6253\u5F00\u539F\u56FE'}
+            </a>
+          </div>
+        </div>
+      ) : null}
       <AdminPinDialog
         open={pinDialogOpen}
         onCancel={cancelAdminUnlock}
