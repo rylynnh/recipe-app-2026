@@ -307,6 +307,21 @@ export function parsePastedText(text: string): {
   };
 
   for (let i = 0; i < lines.length; i++) {
+
+  /** Parse compact runs such as "flour260g water260g yeast1g". */
+  const parseIngredientSequence = (line: string, group?: string) => {
+    const results: { name: string; amount: number; unit: string; group?: string }[] = [];
+    const sequencePattern = /([\u4e00-\u9fa5a-zA-Z/\s\(\)\uFF08\uFF09]+?)\s*(\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(kg|KG|g|ml|mL|ML|l|L|\u5343\u514b|\u514b|\u6beb\u5347|\u5347|\u65a4|\u4e24|\u4e2a|\u53ea|\u6839|\u7247|\u74e3|\u628a|\u52fa|\u8336\u5319|\u6c64\u5319|\u5927\u5319|\u5c0f\u5319|\u676f|\u7897|\u5305|\u4efd|\u9002\u91cf)(?=\s|$)/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = sequencePattern.exec(line)) !== null) {
+      const name = match[1].trim().replace(/[\uFF1A:]+$/, '').trim();
+      const parsed = name ? parseIngredientLine(`${name} ${match[2]} ${match[3]}`, group) : null;
+      if (parsed) results.push(parsed);
+    }
+
+    return results;
+  };
     const trimmed = lines[i].trim();
     if (!trimmed || /^[-=_]{3,}$/.test(trimmed)) continue;
 
@@ -373,6 +388,13 @@ export function parsePastedText(text: string): {
     // Check for sub-group header (e.g., "酱汁：", "配菜：", "香料油：")
     const subGroup = isSubGroupHeader(trimmed);
     if (subGroup !== null) {
+      // A colon inside an established method section is a step subheading or
+      // instruction, never a late ingredient group.
+      if (inSteps) {
+        steps.push(trimmed);
+        continue;
+      }
+
       // Extract inline content after the colon
       const afterColonMatch = trimmed.match(/^[^:：]*[:：]\s*(.+)$/);
       const afterColon = afterColonMatch ? afterColonMatch[1].trim() : '';
@@ -385,18 +407,27 @@ export function parsePastedText(text: string): {
       const inlineIngredientCount = inlineParts.filter((part) => Boolean(parseIngredientLine(part, subGroup))).length;
       const hasStrongInlineIngredientEvidence = inlineIngredientCount > 0
         && inlineIngredientCount >= Math.ceil(inlineParts.length / 2);
+      const inlineSequence = parseIngredientSequence(afterColon, subGroup);
       const hasStrongNextIngredientEvidence = Boolean(parseIngredientLine(nextLine, subGroup)) || looksLikeIngredient(nextLine);
       const isKnownIngredientGroup = knownIngredientGroups.some((name) => subGroup.includes(name));
       const shouldTreatAsIngredientGroup = hasStrongInlineIngredientEvidence
         || (!afterColon && hasStrongNextIngredientEvidence)
         || (isKnownIngredientGroup && (hasStrongInlineIngredientEvidence || hasStrongNextIngredientEvidence));
 
+      if (afterColon && inlineSequence.length > 0) {
+        ingredients.push(...inlineSequence);
+        currentGroup = undefined;
+        inIngredients = true;
+        inSteps = false;
+        continue;
+      }
+
       if (afterColon && shouldTreatAsIngredientGroup) {
         // There's content after the colon — try to parse as inline ingredients
         const inlineIngs = parseInlineIngredients(afterColon, subGroup);
         if (inlineIngs.length > 0) {
           ingredients.push(...inlineIngs);
-          currentGroup = subGroup;
+          currentGroup = undefined;
           inIngredients = true;
           inSteps = false;
           continue;
@@ -433,6 +464,12 @@ export function parsePastedText(text: string): {
 
     // If in ingredients section
     if (inIngredients) {
+      const compactSequence = parseIngredientSequence(trimmed, currentGroup);
+      if (compactSequence.length >= 2) {
+        ingredients.push(...compactSequence);
+        continue;
+      }
+
       // First, check if the line contains multiple ingredients separated by punctuation
       if (/[、，,；;]/.test(trimmed)) {
         const parts = splitIngredientsOutsideBrackets(trimmed);
