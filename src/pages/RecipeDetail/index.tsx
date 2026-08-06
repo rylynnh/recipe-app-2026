@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bookmark, BookmarkCheck, Edit, Heart, Save, X, Camera, Plus, Trash2, Crop, Check, RotateCcw, Menu, Timer } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, Edit, Heart, Save, X, Camera, Plus, Trash2, Crop, Check, RotateCcw, Menu, Timer, Share2, Loader2 } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useTodosStore } from '../../store/todos';
 import { useFoodItemsStore } from '../../store/foodItems';
@@ -14,6 +14,7 @@ import { resolveRecipeImage } from '../../utils/recipeImage';
 import { CoverImageEditor } from '../../components/CoverImageEditor';
 import { AdminPinDialog } from '../../components/AdminPinDialog';
 import { useAdminGate } from '../../hooks/useAdminGate';
+import { createRecipeShareImage, downloadShareImage } from '../../utils/recipeShare';
 
 type EditableIngredient = { id: string; name: string; amount: number; unit: string; group?: string };
 type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
@@ -40,6 +41,7 @@ export function RecipeDetail() {
   const [servings, setServings] = useState(recipe?.baseServings || 1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isPreparingShare, setIsPreparingShare] = useState(false);
 
   // Edit form state
   const [editTitle, setEditTitle] = useState('');
@@ -326,6 +328,25 @@ export function RecipeDetail() {
       toggleTodo(todo.id);
     } else {
       addTodo(recipe.id);
+    }
+  };
+
+  const handleShareRecipe = async () => {
+    setIsPreparingShare(true);
+    try {
+      const blob = await createRecipeShareImage(recipe);
+      const file = new File([blob], `${recipe.title}-MISE\u83DC\u8C31.jpg`, { type: 'image/jpeg' });
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        await navigator.share({ title: recipe.title, text: `MISE \u83DC\u8C31\uFF5C${recipe.title}`, files: [file] });
+      } else {
+        downloadShareImage(blob, recipe.title);
+        alert('\u5DF2\u751F\u6210\u957F\u56FE\uFF0C\u8BF7\u4ECE\u4E0B\u8F7D\u5185\u5BB9\u4E2D\u53D1\u9001\u7ED9\u670B\u53CB\u3002');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      alert(error instanceof Error ? error.message : '\u5206\u4EAB\u56FE\u7247\u751F\u6210\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002');
+    } finally {
+      setIsPreparingShare(false);
     }
   };
 
@@ -958,6 +979,15 @@ export function RecipeDetail() {
           className="p-2 -ml-2 hover:bg-divider/50 rounded-full transition-colors"
         >
           <ArrowLeft className="w-5 h-5 text-primary" />
+        </button>
+        <button
+          onClick={handleShareRecipe}
+          disabled={isPreparingShare}
+          className="p-2 hover:bg-divider/50 rounded-full transition-colors text-secondary disabled:opacity-50"
+          title={'\u5206\u4EAB\u83DC\u8C31'}
+          aria-label={'\u5206\u4EAB\u83DC\u8C31'}
+        >
+          {isPreparingShare ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
         </button>
         <h1 className="font-display text-[20px] font-medium text-primary flex-1 truncate">
           {recipe.title}
