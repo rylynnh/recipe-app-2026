@@ -57,6 +57,13 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return respond({ ok: true }, 200, origin);
     }
+    if (body.action === "update-image" && typeof body.id === "string") {
+      const imageUrl = await persistImage(admin, body.image, body.id);
+      const { error } = await admin.from("recipes").update({ image: imageUrl, updated_at: Date.now() }).eq("id", body.id);
+      if (error) throw error;
+      return respond({ ok: true, imageUrl }, 200, origin);
+    }
+
     if (body.action === "repair-image" && typeof body.id === "string") {
       const { data: existing, error: findError } = await admin.from("recipes").select("image").eq("id", body.id).single();
       if (findError) throw findError;
