@@ -802,6 +802,17 @@ export function AddRecipe() {
               >
                 解析文字
               </button>
+              {pasteText.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setPasteText('')}
+                  className="flex items-center gap-1 px-2 py-2 text-sm text-secondary hover:text-primary transition-colors"
+                  aria-label="清空粘贴文字"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  清空
+                </button>
+              )}
               <button
                 onClick={() => setShowImageOCR(!showImageOCR)}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-input transition-colors"

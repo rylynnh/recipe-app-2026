@@ -82,7 +82,13 @@ export function parsePastedText(text: string): {
   note: string;
 } {
   // Clean OCR artifacts like "--- 图片 1 ---"
-  const cleaned = text.replace(/---\s*图片\s*\d+\s*---/g, '').replace(/#{1,6}\s*/g, '');
+  // OCR / copied mobile text may include zero-width spaces after a unit (e.g.
+  // "糯米或粳米 100g​"). They are invisible but prevent a trailing unit from
+  // matching, so the amount is incorrectly treated as a separate ingredient.
+  const cleaned = text
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .replace(/---\s*图片\s*\d+\s*---/g, '')
+    .replace(/#{1,6}\s*/g, '');
   const lines = cleaned.split('\n').filter((line) => line.trim());
 
   let title = '';
