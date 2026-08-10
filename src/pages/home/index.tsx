@@ -176,7 +176,7 @@ export function Home() {
           <p className="mt-4 max-w-[29ch] text-[14px] leading-7 text-secondary">以准确的分量、时间和火候，完成值得反复练习的一餐。</p>
         </section>
 
-        <section className="border-y border-divider">
+        <section>
           <button type="button" onClick={() => navigate(`/recipe/${featured.id}`)} className="group block w-full text-left">
             <div className="aspect-[16/10] overflow-hidden bg-[#E7E0D5]">
               {featured.image ? <img src={resolveRecipeImage(featured.image)} alt={featured.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]" /> : <div className="flex h-full items-center justify-center font-display text-xl text-secondary">{featured.title}</div>}
@@ -185,7 +185,7 @@ export function Home() {
               <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-accent">Method / 001</p>
               <h2 className="font-display text-[28px] font-medium leading-tight text-primary">{featured.title}</h2>
               {featuredIntro && <p className="mt-2 line-clamp-2 text-[14px] leading-6 text-secondary">{featuredIntro}</p>}
-              <div className="mt-4 border-t border-divider pt-3"><RecipeMeta recipe={featured} /></div>
+              <div className="mt-4"><RecipeMeta recipe={featured} /></div>
             </div>
           </button>
         </section>
