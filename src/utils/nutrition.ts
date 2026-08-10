@@ -226,8 +226,12 @@ export function parsePastedText(text: string): {
   // Parse a single ingredient line
   const parseIngredientLine = (line: string, group?: string): { name: string; amount: number; unit: string; group?: string } | null => {
     const trimmed = line.trim().replace(/[、，,；;]+$/, '');
-    // Lines starting with action verbs are steps, not ingredients
-    if (stepStartVerbs.test(trimmed)) return null;
+    // Lines starting with verbs are usually steps, but names such as
+    // "煮粥用水 900ml" are legitimate ingredients. Keep lines with an
+    // explicit trailing quantity for the detailed parser below; it will still
+    // reject time and temperature units as step instructions.
+    const hasExplicitQuantity = /\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?\s*[a-zA-Z\u4e00-\u9fa5]+\s*$/.test(trimmed);
+    if (stepStartVerbs.test(trimmed) && !hasExplicitQuantity) return null;
 
     const makeIngredient = (name: string, amount: number, unit: string) => {
       // Chinese market weight is more useful in a precise recipe as grams.
