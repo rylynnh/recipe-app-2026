@@ -16,7 +16,7 @@ function formatMultiplier(value: number) {
 
 export function ServingsAdjuster({ baseServings, currentServings, onChange }: ServingsAdjusterProps) {
   const multiplier = currentServings / baseServings;
-  const [inputValue, setInputValue] = useState(() => formatMultiplier(multiplier));
+  const [inputValue, setInputValue] = useState(() => formatMultiplier(currentServings));
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const previousServings = useRef(currentServings);
@@ -26,14 +26,13 @@ export function ServingsAdjuster({ baseServings, currentServings, onChange }: Se
       setIsAnimating(true);
       const timer = window.setTimeout(() => setIsAnimating(false), 220);
       previousServings.current = currentServings;
-      if (!isEditing) setInputValue(formatMultiplier(multiplier));
+      if (!isEditing) setInputValue(formatMultiplier(currentServings));
       return () => window.clearTimeout(timer);
     }
   }, [currentServings, isEditing, multiplier]);
 
   const applyMultiplier = (value: number) => {
     const nextMultiplier = Number.isFinite(value) && value > 0 ? value : multiplier;
-    setInputValue(formatMultiplier(nextMultiplier));
     onChange(nextMultiplier * baseServings);
   };
 
@@ -45,17 +44,17 @@ export function ServingsAdjuster({ baseServings, currentServings, onChange }: Se
 
     const parsed = Number(nextValue);
     if (nextValue !== '' && Number.isFinite(parsed) && parsed > 0) {
-      onChange(parsed * baseServings);
+      onChange(parsed);
     }
   };
 
   const commitInput = () => {
     const parsed = Number(inputValue);
     if (!Number.isFinite(parsed) || parsed <= 0) {
-      setInputValue(formatMultiplier(multiplier));
+      setInputValue(formatMultiplier(currentServings));
       return;
     }
-    applyMultiplier(parsed);
+    onChange(parsed);
   };
 
   const nudgeMultiplier = (direction: -1 | 1) => {
@@ -77,10 +76,10 @@ export function ServingsAdjuster({ baseServings, currentServings, onChange }: Se
           <Minus className="h-5 w-5" />
         </button>
         <div className="min-w-[118px] text-center">
-          <label htmlFor="recipe-multiplier" className="sr-only">菜谱倍率</label>
+          <label htmlFor="recipe-serving-amount" className="sr-only">配方量</label>
           <div className="flex items-baseline justify-center border-b border-divider pb-1 focus-within:border-accent">
             <input
-              id="recipe-multiplier"
+              id="recipe-serving-amount"
               type="text"
               inputMode="decimal"
               value={inputValue}
@@ -98,8 +97,8 @@ export function ServingsAdjuster({ baseServings, currentServings, onChange }: Se
               }}
               className={`w-[78px] bg-transparent text-center font-mono-digit text-3xl font-medium text-accent outline-none transition-transform ${isAnimating ? 'scale-105' : ''}`}
             />
-            <span className="ml-1 text-sm text-secondary">×</span>
           </div>
+          <span className="mt-1 block text-xs text-secondary">配方量</span>
         </div>
         <button
           type="button"
