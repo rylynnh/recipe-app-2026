@@ -61,11 +61,25 @@ export async function createRecipeShareImage(recipe: Recipe): Promise<Blob> {
   const ingredientLines = recipe.ingredients.flatMap((ingredient) => wrapText(previewContext, `${ingredient.name}${ingredient.amount || ingredient.unit ? `  ${ingredient.amount ? formatAmount(ingredient.amount) : ''}${ingredient.unit}` : ''}`, contentWidth));
   previewContext.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
   const stepLines = recipe.steps.flatMap((step) => wrapText(previewContext, step.content, contentWidth - 68));
+  const note = recipe.note?.trim() || '';
+  const noteLines = note
+    ? note.split(/\r?\n/).flatMap((line) => wrapText(previewContext, line || ' ', contentWidth))
+    : [];
+  const ingredientGroups: Array<{ name?: string; items: Recipe['ingredients'] }> = [];
+  recipe.ingredients.forEach((ingredient) => {
+    const current = ingredientGroups[ingredientGroups.length - 1];
+    if (current && current.name === ingredient.group) {
+      current.items.push(ingredient);
+    } else {
+      ingredientGroups.push({ name: ingredient.group, items: [ingredient] });
+    }
+  });
+  const ingredientGroupLabelCount = ingredientGroups.filter((group) => group.name).length;
   const tagText = [recipe.structureTag, ...recipe.mainIngredient].filter(Boolean).join('  ·  ');
 
   const canvas = document.createElement('canvas');
   canvas.width = CANVAS_WIDTH;
-  canvas.height = Math.max(1700, 640 + 390 + titleLines.length * 68 + recipe.ingredients.length * 72 + stepLines.length * 54 + recipe.steps.length * 42);
+  canvas.height = Math.max(1700, 640 + 390 + titleLines.length * 68 + recipe.ingredients.length * 72 + ingredientGroupLabelCount * 48 + stepLines.length * 54 + recipe.steps.length * 42 + (noteLines.length ? noteLines.length * 48 + 180 : 0));
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('无法创建分享图片');
   ctx.fillStyle = '#F8F6F2'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -84,20 +98,27 @@ export async function createRecipeShareImage(recipe: Recipe): Promise<Blob> {
   ctx.fillStyle = '#F8F6F2'; ctx.fillRect(PADDING - 8, y - 48, 220, 64);
   ctx.fillStyle = '#A87945'; ctx.font = '40px "Songti SC", "STSong", serif'; ctx.fillText('\u98DF\u6750', PADDING, y);
   y += 60;
-  recipe.ingredients.forEach((ingredient) => {
-    const amountText = ingredient.amount || ingredient.unit
-      ? `${ingredient.amount ? formatAmount(ingredient.amount) : ''}${ingredient.unit}`
-      : '';
-    const nameLines = wrapText(ctx, ingredient.name, INGREDIENT_AMOUNT_X - PADDING - 32);
-    const amountLines = wrapText(ctx, amountText, CANVAS_WIDTH - PADDING - INGREDIENT_AMOUNT_X);
-    const lineCount = Math.max(nameLines.length, amountLines.length);
-
-    for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
-      if (nameLines[lineIndex]) ctx.fillText(nameLines[lineIndex], PADDING, y);
-      if (amountLines[lineIndex]) ctx.fillText(amountLines[lineIndex], INGREDIENT_AMOUNT_X, y);
-      y += 52;
+  ingredientGroups.forEach((group) => {
+    if (group.name) {
+      ctx.fillStyle = '#A87945'; ctx.font = '22px "PingFang SC", "Microsoft YaHei", sans-serif';
+      ctx.fillText(group.name, PADDING, y); y += 42;
     }
-    y += 4;
+    group.items.forEach((ingredient) => {
+      const amountText = ingredient.amount || ingredient.unit
+        ? `${ingredient.amount ? formatAmount(ingredient.amount) : ''}${ingredient.unit}`
+        : '';
+      const nameLines = wrapText(ctx, ingredient.name, INGREDIENT_AMOUNT_X - PADDING - 32);
+      const amountLines = wrapText(ctx, amountText, CANVAS_WIDTH - PADDING - INGREDIENT_AMOUNT_X);
+      const lineCount = Math.max(nameLines.length, amountLines.length);
+
+      ctx.fillStyle = '#373431'; ctx.font = '34px "PingFang SC", "Microsoft YaHei", sans-serif';
+      for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
+        if (nameLines[lineIndex]) ctx.fillText(nameLines[lineIndex], PADDING, y);
+        if (amountLines[lineIndex]) ctx.fillText(amountLines[lineIndex], INGREDIENT_AMOUNT_X, y);
+        y += 52;
+      }
+      y += 4;
+    });
   });
   y += 32; ctx.strokeStyle = '#DDD7CE'; ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(CANVAS_WIDTH - PADDING, y); ctx.stroke(); y += 56;
   ctx.fillStyle = '#242321'; ctx.font = '30px "Songti SC", "STSong", serif'; ctx.fillText('步骤', PADDING, y); y += 52;
@@ -113,6 +134,12 @@ export async function createRecipeShareImage(recipe: Recipe): Promise<Blob> {
     wrapText(ctx, step.content, contentWidth - 76).forEach((line) => { ctx.fillText(line, PADDING + 72, y); y += 52; });
     y += 28;
   });
+  if (noteLines.length) {
+    y += 12; ctx.strokeStyle = '#DDD7CE'; ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(CANVAS_WIDTH - PADDING, y); ctx.stroke(); y += 56;
+    ctx.fillStyle = '#A87945'; ctx.font = '40px "Songti SC", "STSong", serif'; ctx.fillText('\u5907\u6ce8', PADDING, y); y += 64;
+    ctx.fillStyle = '#77726B'; ctx.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';
+    noteLines.forEach((line) => { ctx.fillText(line, PADDING, y); y += 48; });
+  }
   ctx.fillStyle = '#A87945'; ctx.font = '20px "Helvetica Neue", Arial, sans-serif'; ctx.letterSpacing = '2px'; ctx.fillText('MISE  ·  EVERYTHING IN ITS PLACE', PADDING, canvas.height - 44); ctx.letterSpacing = '0px';
   return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('图片生成失败')), 'image/jpeg', 0.92));
 }

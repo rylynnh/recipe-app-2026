@@ -988,15 +988,6 @@ export function RecipeDetail() {
         >
           <ArrowLeft className="w-5 h-5 text-primary" />
         </button>
-        <button
-          onClick={handleShareRecipe}
-          disabled={isPreparingShare}
-          className="p-2 hover:bg-divider/50 rounded-full transition-colors text-secondary disabled:opacity-50"
-          title={'\u5206\u4EAB\u83DC\u8C31'}
-          aria-label={'\u5206\u4EAB\u83DC\u8C31'}
-        >
-          {isPreparingShare ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
-        </button>
         <h1 className="font-display text-[20px] font-medium text-primary flex-1 truncate">
           {recipe.title}
         </h1>
@@ -1028,6 +1019,15 @@ export function RecipeDetail() {
           ) : (
             <Bookmark className="w-5 h-5" />
           )}
+        </button>
+        <button
+          onClick={handleShareRecipe}
+          disabled={isPreparingShare}
+          className="p-2 -mr-2 hover:bg-divider/50 rounded-full transition-colors text-secondary disabled:opacity-50"
+          title={'\u5206\u4EAB\u83DC\u8C31'}
+          aria-label={'\u5206\u4EAB\u83DC\u8C31'}
+        >
+          {isPreparingShare ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
         </button>
       </header>
 
@@ -1069,7 +1069,6 @@ export function RecipeDetail() {
 
         <div className="card mb-4 p-5">
           <ServingsAdjuster
-            baseServings={recipe.baseServings}
             currentServings={servings}
             onChange={setServings}
           />
@@ -1077,7 +1076,7 @@ export function RecipeDetail() {
 
         <div className="card mb-4">
           <div className="px-5 py-4" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
-            <h3 className="font-display text-[16px] font-medium text-primary">食材</h3>
+            <h3 className="font-display text-[16px] font-medium text-accent">食材</h3>
           </div>
           <div className="divide-y divide-divider">
             {(() => {
@@ -1108,7 +1107,7 @@ export function RecipeDetail() {
                   )}
                   {group.items.map((ing) => (
                     <div key={ing.id} className="flex items-center justify-between px-5 py-3.5">
-                      <span className="text-primary text-[15px]">{ing.name}</span>
+                      <span className="text-secondary text-[15px]">{ing.name}</span>
                       {(ing.amount !== 0 || ing.unit) && (
                         <span className="font-mono-digit text-accent text-[15px]">
                           {ing.amount !== 0 ? formatAmount(ing.amount) : ''} {ing.unit}
