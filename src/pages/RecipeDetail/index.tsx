@@ -19,6 +19,8 @@ import { createRecipeShareImage } from '../../utils/recipeShare';
 type EditableIngredient = { id: string; name: string; amount: number; unit: string; group?: string };
 type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
 
+const getIngredientGroupKey = (group?: string) => group || '__ungrouped__';
+
 function coalesceIngredientGroups(items: EditableIngredient[]) {
   const groups = new Map<string, EditableIngredient[]>();
   items.forEach((item) => {
@@ -28,10 +30,30 @@ function coalesceIngredientGroups(items: EditableIngredient[]) {
   return Array.from(groups.values()).flat();
 }
 
+function moveIngredientGroup(items: EditableIngredient[], sourceKey: string, targetKey: string, placeAfter: boolean) {
+  if (sourceKey === targetKey) return items;
+
+  const groups = Array.from(
+    items.reduce((result, item) => {
+      const key = getIngredientGroupKey(item.group);
+      result.set(key, [...(result.get(key) || []), item]);
+      return result;
+    }, new Map<string, EditableIngredient[]>())
+  ).map(([key, groupItems]) => ({ key, items: groupItems }));
+  const sourceIndex = groups.findIndex((group) => group.key === sourceKey);
+  const targetIndex = groups.findIndex((group) => group.key === targetKey);
+  if (sourceIndex < 0 || targetIndex < 0) return items;
+
+  const [source] = groups.splice(sourceIndex, 1);
+  const adjustedTargetIndex = groups.findIndex((group) => group.key === targetKey) + (placeAfter ? 1 : 0);
+  groups.splice(adjustedTargetIndex, 0, source);
+  return groups.flatMap((group) => group.items);
+}
+
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getRecipeById, updateRecipe, deleteRecipe, toggleFavorite, favoriteIds } = useRecipesStore();
+  const { getRecipeById, updateRecipe, deleteRecipe, toggleFavorite, favoriteIds, initialized } = useRecipesStore();
   const { addTodo, getTodoByRecipeId, toggleTodo } = useTodosStore();
   const { foodItems, unitConversions, categories } = useFoodItemsStore();
   const { pinDialogOpen, requireAdmin, cancelAdminUnlock, continueAfterUnlock } = useAdminGate();
@@ -68,6 +90,8 @@ export function RecipeDetail() {
   const [newIngGroup, setNewIngGroup] = useState('');
   const stepImageInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const draggedIngredientIndex = useRef<number | null>(null);
+  const draggedIngredientGroup = useRef<string | null>(null);
+  const lastIngredientGroupTarget = useRef<string | null>(null);
 
   const ASPECT_RATIO = 4 / 3;
   const MIN_SIZE = 60;
@@ -318,7 +342,20 @@ export function RecipeDetail() {
   if (!recipe) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-secondary">菜谱不存在</p>
+        <div className="text-center px-6">
+          {!initialized ? (
+            <>
+              <Loader2 className="w-5 h-5 mx-auto mb-3 text-accent animate-spin" />
+              <p className="text-secondary">正在打开菜谱…</p>
+              <p className="mt-1 text-xs text-secondary/60">正在同步料理档案</p>
+            </>
+          ) : (
+            <>
+              <p className="text-secondary">暂时无法打开这道菜谱</p>
+              <p className="mt-1 text-xs text-secondary/60">链接可能不完整，或菜谱已被移除</p>
+            </>
+          )}
+        </div>
       </div>
     );
   }
@@ -428,6 +465,10 @@ export function RecipeDetail() {
       next.splice(targetIndex, 0, { ...dragged, group: prev[toIndex]?.group });
       return coalesceIngredientGroups(next);
     });
+  };
+
+  const reorderEditIngredientGroup = (sourceKey: string, targetKey: string, placeAfter: boolean) => {
+    setEditIngredients((prev) => moveIngredientGroup(prev, sourceKey, targetKey, placeAfter));
   };
 
   const removeEditStep = (id: string) => {
@@ -674,13 +715,79 @@ export function RecipeDetail() {
                   {editIngredients.map((ing, index) => (
                     <div key={ing.id}>
                       {ing.group && (index === 0 || editIngredients[index - 1].group !== ing.group) && (
-                        <div className="flex items-center gap-2 mt-3 mb-1 first:mt-0">
+                        <div className="flex items-center gap-1.5 mt-3 mb-1 first:mt-0" data-edit-ingredient-group-key={getIngredientGroupKey(ing.group)}>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => {
+                              draggedIngredientGroup.current = getIngredientGroupKey(ing.group);
+                              lastIngredientGroupTarget.current = null;
+                              event.currentTarget.setPointerCapture?.(event.pointerId);
+                            }}
+                            onPointerMove={(event) => {
+                              const sourceKey = draggedIngredientGroup.current;
+                              const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-edit-ingredient-group-key]');
+                              const targetKey = target?.dataset.editIngredientGroupKey;
+                              if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+                              const bounds = target.getBoundingClientRect();
+                              const targetPosition = event.clientY > bounds.top + bounds.height / 2 ? 'after' : 'before';
+                              const targetSignature = `${targetKey}:${targetPosition}`;
+                              if (lastIngredientGroupTarget.current === targetSignature) return;
+                              lastIngredientGroupTarget.current = targetSignature;
+                              reorderEditIngredientGroup(sourceKey, targetKey, targetPosition === 'after');
+                            }}
+                            onPointerUp={() => {
+                              draggedIngredientGroup.current = null;
+                              lastIngredientGroupTarget.current = null;
+                            }}
+                            onPointerCancel={() => {
+                              draggedIngredientGroup.current = null;
+                              lastIngredientGroupTarget.current = null;
+                            }}
+                            className="-ml-1 shrink-0 cursor-grab touch-none p-1 text-secondary/45 active:cursor-grabbing"
+                            title="拖动调整分组顺序"
+                            aria-label={`拖动 ${ing.group} 分组调整顺序`}
+                          >
+                            <Menu className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          </button>
                           <span className="text-xs font-medium text-accent">{ing.group}</span>
                           <span className="flex-1 h-px bg-divider/50"></span>
                         </div>
                       )}
                       {!ing.group && (index === 0 || editIngredients[index - 1].group !== undefined) && (
-                        <div className="flex items-center gap-2 mt-3 mb-1 first:mt-0">
+                        <div className="flex items-center gap-1.5 mt-3 mb-1 first:mt-0" data-edit-ingredient-group-key={getIngredientGroupKey()}>
+                          <button
+                            type="button"
+                            onPointerDown={(event) => {
+                              draggedIngredientGroup.current = getIngredientGroupKey();
+                              lastIngredientGroupTarget.current = null;
+                              event.currentTarget.setPointerCapture?.(event.pointerId);
+                            }}
+                            onPointerMove={(event) => {
+                              const sourceKey = draggedIngredientGroup.current;
+                              const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-edit-ingredient-group-key]');
+                              const targetKey = target?.dataset.editIngredientGroupKey;
+                              if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+                              const bounds = target.getBoundingClientRect();
+                              const targetPosition = event.clientY > bounds.top + bounds.height / 2 ? 'after' : 'before';
+                              const targetSignature = `${targetKey}:${targetPosition}`;
+                              if (lastIngredientGroupTarget.current === targetSignature) return;
+                              lastIngredientGroupTarget.current = targetSignature;
+                              reorderEditIngredientGroup(sourceKey, targetKey, targetPosition === 'after');
+                            }}
+                            onPointerUp={() => {
+                              draggedIngredientGroup.current = null;
+                              lastIngredientGroupTarget.current = null;
+                            }}
+                            onPointerCancel={() => {
+                              draggedIngredientGroup.current = null;
+                              lastIngredientGroupTarget.current = null;
+                            }}
+                            className="-ml-1 shrink-0 cursor-grab touch-none p-1 text-secondary/45 active:cursor-grabbing"
+                            title="拖动调整分组顺序"
+                            aria-label="拖动其他分组调整顺序"
+                          >
+                            <Menu className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          </button>
                           <span className="text-xs font-medium text-secondary/50">其他</span>
                           <span className="flex-1 h-px bg-divider/50"></span>
                         </div>

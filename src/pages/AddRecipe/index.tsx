@@ -23,6 +23,8 @@ interface ParsedStep {
 
 type EditableIngredient = { name: string; amount: number; unit: string; group?: string };
 
+const getIngredientGroupKey = (group?: string) => group || '__ungrouped__';
+
 /** Keep each ingredient group in one continuous block while retaining its internal order. */
 function coalesceIngredientGroups(items: EditableIngredient[]) {
   const grouped = new Map<string, EditableIngredient[]>();
@@ -33,6 +35,27 @@ function coalesceIngredientGroups(items: EditableIngredient[]) {
     grouped.set(key, current);
   });
   return Array.from(grouped.values()).flat();
+}
+
+/** Move a whole group while retaining the order of the ingredients inside it. */
+function moveIngredientGroup(items: EditableIngredient[], sourceKey: string, targetKey: string, placeAfter: boolean) {
+  if (sourceKey === targetKey) return items;
+
+  const groups = Array.from(
+    items.reduce((result, item) => {
+      const key = getIngredientGroupKey(item.group);
+      result.set(key, [...(result.get(key) || []), item]);
+      return result;
+    }, new Map<string, EditableIngredient[]>())
+  ).map(([key, groupItems]) => ({ key, items: groupItems }));
+  const sourceIndex = groups.findIndex((group) => group.key === sourceKey);
+  const targetIndex = groups.findIndex((group) => group.key === targetKey);
+  if (sourceIndex < 0 || targetIndex < 0) return items;
+
+  const [source] = groups.splice(sourceIndex, 1);
+  const adjustedTargetIndex = groups.findIndex((group) => group.key === targetKey) + (placeAfter ? 1 : 0);
+  groups.splice(adjustedTargetIndex, 0, source);
+  return groups.flatMap((group) => group.items);
 }
 
 export function AddRecipe() {
@@ -87,6 +110,8 @@ export function AddRecipe() {
   // Step image refs
   const stepImageInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const draggedIngredientIndex = useRef<number | null>(null);
+  const draggedIngredientGroup = useRef<string | null>(null);
+  const lastIngredientGroupTarget = useRef<string | null>(null);
   const draggedStepIndex = useRef<number | null>(null);
 
   const categoryOptions = categories.filter((c) => c.id !== 's1');
@@ -102,6 +127,10 @@ export function AddRecipe() {
       next.splice(targetIndex, 0, { ...dragged, group: prev[toIndex]?.group });
       return coalesceIngredientGroups(next);
     });
+  };
+
+  const reorderIngredientGroup = (sourceKey: string, targetKey: string, placeAfter: boolean) => {
+    setIngredients((prev) => moveIngredientGroup(prev, sourceKey, targetKey, placeAfter));
   };
 
   // --- Paste text parse ---
@@ -937,13 +966,79 @@ export function AddRecipe() {
                 {ingredients.map((ing, index) => (
                   <div key={index}>
                     {ing.group && (index === 0 || ingredients[index - 1].group !== ing.group) && (
-                      <div className="flex items-center gap-2 mt-3 mb-1 first:mt-0">
+                      <div className="flex items-center gap-1.5 mt-3 mb-1 first:mt-0" data-ingredient-group-key={getIngredientGroupKey(ing.group)}>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            draggedIngredientGroup.current = getIngredientGroupKey(ing.group);
+                            lastIngredientGroupTarget.current = null;
+                            e.currentTarget.setPointerCapture?.(e.pointerId);
+                          }}
+                          onPointerMove={(e) => {
+                            const sourceKey = draggedIngredientGroup.current;
+                            const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-ingredient-group-key]');
+                            const targetKey = target?.dataset.ingredientGroupKey;
+                            if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+                            const bounds = target.getBoundingClientRect();
+                            const targetPosition = e.clientY > bounds.top + bounds.height / 2 ? 'after' : 'before';
+                            const targetSignature = `${targetKey}:${targetPosition}`;
+                            if (lastIngredientGroupTarget.current === targetSignature) return;
+                            lastIngredientGroupTarget.current = targetSignature;
+                            reorderIngredientGroup(sourceKey, targetKey, targetPosition === 'after');
+                          }}
+                          onPointerUp={() => {
+                            draggedIngredientGroup.current = null;
+                            lastIngredientGroupTarget.current = null;
+                          }}
+                          onPointerCancel={() => {
+                            draggedIngredientGroup.current = null;
+                            lastIngredientGroupTarget.current = null;
+                          }}
+                          className="-ml-1 shrink-0 cursor-grab touch-none p-1 text-secondary/45 active:cursor-grabbing"
+                          title="拖动调整分组顺序"
+                          aria-label={`拖动 ${ing.group} 分组调整顺序`}
+                        >
+                          <Menu className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        </button>
                         <span className="text-xs font-medium text-accent">{ing.group}</span>
                         <span className="flex-1 h-px bg-divider/50"></span>
                       </div>
                     )}
                     {!ing.group && (index === 0 || ingredients[index - 1].group !== undefined) && (
-                      <div className="flex items-center gap-2 mt-3 mb-1 first:mt-0">
+                      <div className="flex items-center gap-1.5 mt-3 mb-1 first:mt-0" data-ingredient-group-key={getIngredientGroupKey()}>
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            draggedIngredientGroup.current = getIngredientGroupKey();
+                            lastIngredientGroupTarget.current = null;
+                            e.currentTarget.setPointerCapture?.(e.pointerId);
+                          }}
+                          onPointerMove={(e) => {
+                            const sourceKey = draggedIngredientGroup.current;
+                            const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-ingredient-group-key]');
+                            const targetKey = target?.dataset.ingredientGroupKey;
+                            if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+                            const bounds = target.getBoundingClientRect();
+                            const targetPosition = e.clientY > bounds.top + bounds.height / 2 ? 'after' : 'before';
+                            const targetSignature = `${targetKey}:${targetPosition}`;
+                            if (lastIngredientGroupTarget.current === targetSignature) return;
+                            lastIngredientGroupTarget.current = targetSignature;
+                            reorderIngredientGroup(sourceKey, targetKey, targetPosition === 'after');
+                          }}
+                          onPointerUp={() => {
+                            draggedIngredientGroup.current = null;
+                            lastIngredientGroupTarget.current = null;
+                          }}
+                          onPointerCancel={() => {
+                            draggedIngredientGroup.current = null;
+                            lastIngredientGroupTarget.current = null;
+                          }}
+                          className="-ml-1 shrink-0 cursor-grab touch-none p-1 text-secondary/45 active:cursor-grabbing"
+                          title="拖动调整分组顺序"
+                          aria-label="拖动其他分组调整顺序"
+                        >
+                          <Menu className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        </button>
                         <span className="text-xs font-medium text-secondary/50">其他</span>
                         <span className="flex-1 h-px bg-divider/50"></span>
                       </div>
