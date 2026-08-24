@@ -1,20 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { formatServingAmount, parseServingAmount } from '../../utils/servings';
 
 interface ServingsAdjusterProps {
   currentServings: number;
   onChange: (servings: number) => void;
 }
 
-const STEP = 0.1;
-const QUICK_MULTIPLIERS = [0.5, 1, 2];
-
-function formatMultiplier(value: number) {
-  return Number(value.toFixed(2)).toString();
-}
+const STEP = 0.5;
 
 export function ServingsAdjuster({ currentServings, onChange }: ServingsAdjusterProps) {
-  const [inputValue, setInputValue] = useState(() => formatMultiplier(currentServings));
+  const [inputValue, setInputValue] = useState(() => formatServingAmount(currentServings));
   const [isAnimating, setIsAnimating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const previousServings = useRef(currentServings);
@@ -24,7 +20,7 @@ export function ServingsAdjuster({ currentServings, onChange }: ServingsAdjuster
       setIsAnimating(true);
       const timer = window.setTimeout(() => setIsAnimating(false), 220);
       previousServings.current = currentServings;
-      if (!isEditing) setInputValue(formatMultiplier(currentServings));
+      if (!isEditing) setInputValue(formatServingAmount(currentServings));
       return () => window.clearTimeout(timer);
     }
   }, [currentServings, isEditing]);
@@ -35,20 +31,20 @@ export function ServingsAdjuster({ currentServings, onChange }: ServingsAdjuster
 
   const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextValue = event.target.value;
-    // Keep temporary text such as "0" or "0." while the user is typing.
-    if (!/^\d*(?:\.\d*)?$/.test(nextValue)) return;
+    // Keep partial values while typing, including fractions such as "1/".
+    if (!/^\d*(?:\.\d*)?(?:\/\d*(?:\.\d*)?)?$/.test(nextValue)) return;
     setInputValue(nextValue);
 
-    const parsed = Number(nextValue);
-    if (nextValue !== '' && Number.isFinite(parsed) && parsed > 0) {
+    const parsed = parseServingAmount(nextValue);
+    if (parsed !== null) {
       onChange(parsed);
     }
   };
 
   const commitInput = () => {
-    const parsed = Number(inputValue);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setInputValue(formatMultiplier(currentServings));
+    const parsed = parseServingAmount(inputValue);
+    if (parsed === null) {
+      setInputValue(formatServingAmount(currentServings));
       return;
     }
     onChange(parsed);
@@ -67,7 +63,7 @@ export function ServingsAdjuster({ currentServings, onChange }: ServingsAdjuster
         <button
           type="button"
           onClick={() => nudgeServings(-1)}
-          aria-label="倍率减 0.1"
+          aria-label="倍率减 0.5"
           className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-primary transition-colors hover:bg-divider/50 disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Minus className="h-5 w-5" />
@@ -78,7 +74,7 @@ export function ServingsAdjuster({ currentServings, onChange }: ServingsAdjuster
             <input
               id="recipe-serving-amount"
               type="text"
-              inputMode="decimal"
+              inputMode="text"
               value={inputValue}
               onFocus={(event) => {
                 setIsEditing(true);
@@ -99,23 +95,11 @@ export function ServingsAdjuster({ currentServings, onChange }: ServingsAdjuster
         <button
           type="button"
           onClick={() => nudgeServings(1)}
-          aria-label="倍率加 0.1"
+          aria-label="倍率加 0.5"
           className="flex h-10 w-10 items-center justify-center rounded-full bg-background text-primary transition-colors hover:bg-divider/50 disabled:cursor-not-allowed disabled:opacity-35"
         >
           <Plus className="h-5 w-5" />
         </button>
-      </div>
-      <div className="flex justify-center gap-2" aria-label="常用倍率">
-        {QUICK_MULTIPLIERS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => applyServings(value)}
-            className={`min-w-12 border px-3 py-1.5 text-[12px] transition-colors ${Math.abs(currentServings - value) < 0.001 ? 'border-accent bg-accent text-white' : 'border-divider text-secondary hover:border-accent/60 hover:text-primary'}`}
-          >
-            {value}×
-          </button>
-        ))}
       </div>
     </div>
   );

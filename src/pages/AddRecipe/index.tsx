@@ -11,6 +11,7 @@ import { CoverImageEditor } from '../../components/CoverImageEditor';
 import { AdminPinDialog } from '../../components/AdminPinDialog';
 import { importXiachufangRecipe } from '../../lib/xiachufangImport';
 import { useAdminGate } from '../../hooks/useAdminGate';
+import { formatServingAmount, parseServingAmount } from '../../utils/servings';
 
 interface ParsedStep {
   content: string;
@@ -80,6 +81,7 @@ export function AddRecipe() {
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
   const [categoryId, setCategoryId] = useState('');
   const [baseServings, setBaseServings] = useState(1);
+  const [baseServingsInput, setBaseServingsInput] = useState('1');
   const [note, setNote] = useState('');
 
   // Paste text
@@ -780,11 +782,20 @@ export function AddRecipe() {
           <div className="card p-4">
             <label className="block text-sm font-medium text-primary mb-2">份量</label>
             <input
-              type="number"
-              min="0.01"
-              step="any"
-              value={baseServings}
-              onChange={(e) => setBaseServings(Number(e.target.value))}
+              type="text"
+              inputMode="text"
+              value={baseServingsInput}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                if (!/^\d*(?:\.\d*)?(?:\/\d*(?:\.\d*)?)?$/.test(nextValue)) return;
+                setBaseServingsInput(nextValue);
+                const parsed = parseServingAmount(nextValue);
+                if (parsed !== null) setBaseServings(parsed);
+              }}
+              onBlur={() => {
+                if (parseServingAmount(baseServingsInput) === null) setBaseServingsInput(formatServingAmount(baseServings));
+              }}
+              placeholder="如 1、0.5、1/2"
               className={inputClass}
             />
           </div>
