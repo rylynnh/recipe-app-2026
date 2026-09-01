@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Drumstick, Egg, Fish, Leaf, Search, Soup, Utensils, Wheat } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SearchBar } from '../../components/SearchBar';
 import { RecipeCard } from '../../components/RecipeCard';
 import Empty from '../../components/Empty';
@@ -79,19 +79,34 @@ function recipeIntro(recipe: Recipe) {
 }
 
 export function Home() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchDraft, setSearchDraft] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
+  const [searchDraft, setSearchDraft] = useState(() => searchParams.get('q') || '');
   const [isSearchComposing, setIsSearchComposing] = useState(false);
   const navigate = useNavigate();
   const { searchRecipes, searchHistory } = useRecipesStore();
+
+  const updateSearchQuery = (query: string) => {
+    const nextQuery = query.trim();
+    setSearchQuery(nextQuery);
+    if ((searchParams.get('q') || '') === nextQuery) return;
+    setSearchParams(nextQuery ? { q: nextQuery } : {}, { replace: true });
+  };
+
+  useEffect(() => {
+    const query = searchParams.get('q') || '';
+    setSearchQuery(query);
+    setSearchDraft(query);
+  }, [searchParams]);
+
   useEffect(() => {
     if (isSearchComposing) return;
     const query = searchDraft.trim();
     if (!query) {
-      setSearchQuery('');
+      updateSearchQuery('');
       return;
     }
-    const timer = window.setTimeout(() => setSearchQuery(query), 350);
+    const timer = window.setTimeout(() => updateSearchQuery(query), 350);
     return () => window.clearTimeout(timer);
   }, [searchDraft, isSearchComposing]);
   const recipes = searchRecipes(searchQuery);
@@ -123,10 +138,10 @@ export function Home() {
       <div className="min-h-screen bg-background pb-24">
         <header className="sticky top-0 z-30 border-b border-divider bg-background/95 px-5 py-4 backdrop-blur">
           <div className="mb-4 flex items-center justify-between">
-            <button type="button" onClick={() => { setSearchQuery(''); setSearchDraft(''); }} className="font-display text-[24px] tracking-[0.08em] text-primary">MISE</button>
+            <button type="button" onClick={() => { setSearchDraft(''); updateSearchQuery(''); }} className="font-display text-[24px] tracking-[0.08em] text-primary">MISE</button>
             <span className="text-[11px] uppercase tracking-[0.16em] text-secondary">Search</span>
           </div>
-          <SearchBar onSearch={(query) => { setSearchDraft(query); setSearchQuery(query); }} currentQuery={searchQuery} searchHistory={searchHistory} />
+          <SearchBar onSearch={(query) => { setSearchDraft(query); updateSearchQuery(query); }} currentQuery={searchQuery} searchHistory={searchHistory} />
         </header>
         <main className="px-5 py-6">
           <p className="mb-4 text-[12px] text-secondary">检索结果 / {recipes.length}</p>
@@ -148,7 +163,7 @@ export function Home() {
             className="relative ml-auto block w-32"
             onSubmit={(event) => {
               event.preventDefault();
-              setSearchQuery(searchDraft.trim());
+              updateSearchQuery(searchDraft);
             }}
           >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-secondary" strokeWidth={1.5} />

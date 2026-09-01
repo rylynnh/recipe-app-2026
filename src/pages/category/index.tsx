@@ -7,8 +7,9 @@ import Empty from '../../components/Empty';
 import { resolveRecipeImage } from '../../utils/recipeImage';
 
 export function Category() {
-  const [searchParams] = useSearchParams();
-  const [selectedStructure, setSelectedStructure] = useState(() => searchParams.get('category') === 'vegetable' ? 's3' : 's1');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const getStructureFromParams = () => searchParams.get('structure') || (searchParams.get('category') === 'vegetable' ? 's3' : 's1');
+  const [selectedStructure, setSelectedStructure] = useState(getStructureFromParams);
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>(() => {
     const ingredient = searchParams.get('ingredient');
     return ingredient ? [ingredient] : [];
@@ -17,9 +18,16 @@ export function Category() {
   const navigate = useNavigate();
   const { filterByStructure, filterByIngredient, recipes } = useRecipesStore();
 
+  const updateFilters = (structure: string, ingredients: string[]) => {
+    const nextParams = new URLSearchParams();
+    if (structure !== 's1') nextParams.set('structure', structure);
+    if (ingredients[0]) nextParams.set('ingredient', ingredients[0]);
+    setSearchParams(nextParams, { replace: true });
+  };
+
   useEffect(() => {
     const ingredient = searchParams.get('ingredient');
-    setSelectedStructure(searchParams.get('category') === 'vegetable' ? 's3' : 's1');
+    setSelectedStructure(getStructureFromParams());
     setSelectedIngredients(ingredient ? [ingredient] : []);
   }, [searchParams]);
 
@@ -27,10 +35,13 @@ export function Category() {
     setSelectedStructure(tagId);
     setSelectedIngredients([]);
     setShowAllTags(false);
+    updateFilters(tagId, []);
   };
 
   const handleIngredientToggle = (ingredientName: string) => {
-    setSelectedIngredients((prev) => prev[0] === ingredientName ? [] : [ingredientName]);
+    const nextIngredients = selectedIngredients[0] === ingredientName ? [] : [ingredientName];
+    setSelectedIngredients(nextIngredients);
+    updateFilters(selectedStructure, nextIngredients);
   };
 
   const structureFiltered = filterByStructure(selectedStructure);
@@ -125,7 +136,10 @@ export function Category() {
               })}
               {selectedIngredients.length > 0 && (
                 <button
-                  onClick={() => setSelectedIngredients([])}
+                  onClick={() => {
+                    setSelectedIngredients([]);
+                    updateFilters(selectedStructure, []);
+                  }}
                   className="shrink-0 whitespace-nowrap px-2 py-1 text-[12px] transition-colors"
                   style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }}
                 >
