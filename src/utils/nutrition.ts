@@ -35,10 +35,23 @@ export function parseIngredients(text: string): { name: string; amount: number; 
 }
 
 export function detectDurationInText(text: string): number {
+  // Prefer the lower bound when a recipe provides a range, so a timer never
+  // runs past the earliest time at which the cook should check the food.
+  const rangePairs: [RegExp, number][] = [
+    [/(\d+(?:\.\d+)?)\s*[-–—‑]\s*(\d+(?:\.\d+)?)\s*(?:小时|h(?!ours))/i, 3600],
+    [/(\d+(?:\.\d+)?)\s*[-–—‑]\s*(\d+(?:\.\d+)?)\s*(?:分钟|min(?:s)?\b)/i, 60],
+    [/(\d+(?:\.\d+)?)\s*[-–—‑]\s*(\d+(?:\.\d+)?)\s*(?:秒|s(?!ec))/i, 1],
+  ];
+  for (const [pattern, multiplier] of rangePairs) {
+    const match = text.match(pattern);
+    if (match) return Math.round(parseFloat(match[1]) * multiplier);
+  }
+
   const patternPairs: [RegExp, number][] = [
     [/(\d+(?:\.\d+)?)\s*小时/, 3600],
     [/(\d+(?:\.\d+)?)\s*h(?!ours)/i, 3600],
     [/(\d+(?:\.\d+)?)\s*分钟/, 60],
+    [/(\d+(?:\.\d+)?)\s*min(?:s)?\b/i, 60],
     [/(\d+(?:\.\d+)?)\s*分(?!钟)/, 60],
     [/(\d+(?:\.\d+)?)\s*秒/, 1],
     [/(\d+(?:\.\d+)?)\s*s(?!ec)/i, 1],
