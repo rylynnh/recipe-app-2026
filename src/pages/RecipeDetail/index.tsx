@@ -17,7 +17,7 @@ import { useAdminGate } from '../../hooks/useAdminGate';
 import { createRecipeShareImage } from '../../utils/recipeShare';
 import { formatServingAmount, parseServingAmount } from '../../utils/servings';
 
-type EditableIngredient = { id: string; name: string; amount: number; unit: string; group?: string };
+type EditableIngredient = { id: string; name: string; amount: number | string; unit: string; group?: string };
 type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
 
 const getIngredientGroupKey = (group?: string) => group || '__ungrouped__';
@@ -454,7 +454,7 @@ export function RecipeDetail() {
   const updateEditIngredient = (id: string, field: string, value: any) => {
     setEditIngredients(prev => {
       const next = prev.map(ing =>
-        ing.id === id ? { ...ing, [field]: field === 'amount' ? (parseFloat(value) || 0) : field === 'group' ? value || undefined : value } : ing
+        ing.id === id ? { ...ing, [field]: field === 'amount' ? (value || 0) : field === 'group' ? value || undefined : value } : ing
       );
       return field === 'group' ? coalesceIngredientGroups(next) : next;
     });
@@ -862,7 +862,7 @@ export function RecipeDetail() {
                           className="flex-1 min-w-0 px-2 py-1.5 bg-background text-primary text-sm rounded focus:outline-none focus:ring-1 focus:ring-accent/50"
                         />
                         <input
-                          type="number"
+                          type="text"
                           value={ing.amount || ''}
                           onChange={(e) => updateEditIngredient(ing.id, 'amount', e.target.value)}
                           placeholder="数量"

@@ -24,7 +24,8 @@ export interface Ingredient {
   id: string;
   recipeId: string;
   name: string;
-  amount: number;
+  // A quantity can be a precise value ("250") or a recipe range ("8–10").
+  amount: number | string;
   unit: string;
   group?: string;
   linkedFoodItemId?: string;
@@ -88,7 +89,7 @@ export interface ReviewItem {
   parsedData: {
     title: string;
     servings: number;
-    ingredients: { name: string; amount: number; unit: string; group?: string }[];
+    ingredients: { name: string; amount: number | string; unit: string; group?: string }[];
     steps: { content: string; detectedDurationSeconds?: number }[];
     tags: string[];
   };

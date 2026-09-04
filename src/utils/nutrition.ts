@@ -77,7 +77,7 @@ export function parseAmountValue(str: string): number {
 
 export function parsePastedText(text: string): {
   title: string;
-  ingredients: { name: string; amount: number; unit: string; group?: string }[];
+  ingredients: { name: string; amount: number | string; unit: string; group?: string }[];
   steps: string[];
   note: string;
 } {
@@ -92,7 +92,7 @@ export function parsePastedText(text: string): {
   const lines = cleaned.split('\n').filter((line) => line.trim());
 
   let title = '';
-  const ingredients: { name: string; amount: number; unit: string; group?: string }[] = [];
+  const ingredients: { name: string; amount: number | string; unit: string; group?: string }[] = [];
   const steps: string[] = [];
 
   let currentGroup: string | undefined;
@@ -138,6 +138,12 @@ export function parsePastedText(text: string): {
     const headerPart = match[1].trim().replace(/[【\[\】\]]/g, '').trim();
     const afterColon = match[2].trim();
 
+    // "有盐黄油：每个 8-10g" uses a colon as a name/quantity separator,
+    // not as a group heading. Let the ingredient parser handle it below.
+    if (/^(?:每(?:个|份|只|块|枚|片)\s*)?\d+(?:\.\d+)?\s*(?:[-–—‑]\s*\d+(?:\.\d+)?)?\s*[a-zA-Z\u4e00-\u9fa5]+\s*$/.test(afterColon)) {
+      return null;
+    }
+
     // If it matches a known step keyword, it's NOT a sub-group header
     if (knownStepKeywords.some(kw => headerPart.includes(kw))) return null;
     // If main section header, skip
@@ -169,11 +175,11 @@ export function parsePastedText(text: string): {
 
   // Parse inline ingredients from text after a group header colon
   // e.g., "配菜：黄豆芽 小油菜 大葱末 蒜末" → ["黄豆芽", "小油菜", "大葱末", "蒜末"]
-  const parseInlineIngredients = (text: string, group?: string): { name: string; amount: number; unit: string; group?: string }[] => {
+  const parseInlineIngredients = (text: string, group?: string): { name: string; amount: number | string; unit: string; group?: string }[] => {
     const trimmed = text.trim();
     if (!trimmed) return [];
 
-    const results: { name: string; amount: number; unit: string; group?: string }[] = [];
+    const results: { name: string; amount: number | string; unit: string; group?: string }[] = [];
 
     // First, check if the text contains multiple ingredients separated by punctuation (、，;)
     // If so, split and parse each part separately
@@ -224,8 +230,14 @@ export function parsePastedText(text: string): {
   };
 
   // Parse a single ingredient line
-  const parseIngredientLine = (line: string, group?: string): { name: string; amount: number; unit: string; group?: string } | null => {
-    const trimmed = line.trim().replace(/[、，,；;]+$/, '');
+  const parseIngredientLine = (line: string, group?: string): { name: string; amount: number | string; unit: string; group?: string } | null => {
+    // Recipe text is often copied as a Markdown-style list, for example
+    // "- 高筋面粉：500g". The bullet is presentation only; keeping it makes
+    // the name/amount pattern fail and leaves the full line in the name field.
+    const trimmed = line
+      .trim()
+      .replace(/^(?:[-*•·]|[–—])\s*/, '')
+      .replace(/[、，,；;]+$/, '');
     // Lines starting with verbs are usually steps, but names such as
     // "煮粥用水 900ml" are legitimate ingredients. Keep lines with an
     // explicit trailing quantity for the detailed parser below; it will still
@@ -233,14 +245,17 @@ export function parsePastedText(text: string): {
     const hasExplicitQuantity = /\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?\s*[a-zA-Z\u4e00-\u9fa5]+\s*$/.test(trimmed);
     if (stepStartVerbs.test(trimmed) && !hasExplicitQuantity) return null;
 
-    const makeIngredient = (name: string, amount: number, unit: string) => {
+    const makeIngredient = (name: string, amount: number | string, unit: string) => {
       // Chinese market weight is more useful in a precise recipe as grams.
       const normalizedUnit = unit.trim();
       if (normalizedUnit === '克') return { name, amount, unit: 'g', group };
-      if (normalizedUnit === '斤') return { name, amount: Math.round(amount * 500), unit: 'g', group };
-      if (normalizedUnit === '两') return { name, amount: Math.round(amount * 50), unit: 'g', group };
+      const convertAmount = (multiplier: number) => typeof amount === 'string'
+        ? amount.split(/[\-–—‑]/).map((value) => Math.round(parseAmountValue(value) * multiplier)).join('–')
+        : Math.round(amount * multiplier);
+      if (normalizedUnit === '斤') return { name, amount: convertAmount(500), unit: 'g', group };
+      if (normalizedUnit === '两') return { name, amount: convertAmount(50), unit: 'g', group };
       if (['kg', 'KG', '千克', '公斤'].includes(normalizedUnit)) {
-        return { name, amount: Math.round(amount * 1000), unit: 'g', group };
+        return { name, amount: convertAmount(1000), unit: 'g', group };
       }
       return { name, amount, unit: normalizedUnit, group };
     };
@@ -271,9 +286,21 @@ export function parsePastedText(text: string): {
 
     // Amount pattern: fraction (1/4) or decimal/integer (100, 0.5) — fraction first so it wins
     const AMOUNT = '(\\d+(?:\\.\\d+)?\\s*\\/\\s*\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
+    const RANGE_AMOUNT = '(\\d+(?:\\.\\d+)?)\\s*[-–—‑]\\s*(\\d+(?:\\.\\d+)?)';
+    // Range quantities are common in baking recipes, e.g.
+    // "有盐黄油：每个 8-10g". Store the displayed range rather than silently
+    // choosing one endpoint, so it remains editable and visible in the recipe.
+    const rangeMatch = trimmed.match(new RegExp(`^([\\u4e00-\\u9fa5a-zA-Z/\\s\\(\\)（）]+?)\\s*[-–—~～:：]?\\s*(?:每(?:个|份|只|块|枚|片))?\\s*${RANGE_AMOUNT}\\s*([a-zA-Z\\u4e00-\\u9fa5]+)\\s*(?:[（(][^（）()]*[）)])?\\s*$`));
+    if (rangeMatch) {
+      const name = rangeMatch[1].trim();
+      const unit = rangeMatch[4].trim();
+      if (name && name.length <= 20 && !['小时', '分钟', '秒', '度', '℃'].includes(unit)) {
+        return makeIngredient(name, `${rangeMatch[2]}–${rangeMatch[3]}`, unit);
+      }
+    }
     // Pattern: name [separator] amount unit
     // Supports: "高筋粉 500g", "猪肉100g", "猪肉-100g", "洋葱（切碎）1/4个", "陈醋 30 g"
-    const match = trimmed.match(new RegExp(`^([\\u4e00-\\u9fa5a-zA-Z/\\s\\(\\)（）]+?)\\s*[-–—~～:：]?\\s*${AMOUNT}\\s*([a-zA-Z\\u4e00-\\u9fa5]+)\\s*$`));
+    const match = trimmed.match(new RegExp(`^([\\u4e00-\\u9fa5a-zA-Z/\\s\\(\\)（）]+?)\\s*[-–—~～:：]?\\s*${AMOUNT}\\s*([a-zA-Z\\u4e00-\\u9fa5]+)\\s*(?:[（(][^（）()]*[）)])?\\s*$`));
     if (match) {
       const name = match[1].trim();
       const unit = match[3].trim();
@@ -320,7 +347,7 @@ export function parsePastedText(text: string): {
 
   /** Parse compact runs such as "flour260g water260g yeast1g". */
   const parseIngredientSequence = (line: string, group?: string) => {
-    const results: { name: string; amount: number; unit: string; group?: string }[] = [];
+    const results: { name: string; amount: number | string; unit: string; group?: string }[] = [];
     const sequencePattern = /([\u4e00-\u9fa5a-zA-Z/\s\(\)\uFF08\uFF09]+?)\s*(\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(kg|KG|g|ml|mL|ML|l|L|\u5343\u514b|\u514b|\u6beb\u5347|\u5347|\u65a4|\u4e24|\u4e2a|\u53ea|\u6839|\u7247|\u74e3|\u628a|\u52fa|\u8336\u5319|\u6c64\u5319|\u5927\u5319|\u5c0f\u5319|\u676f|\u7897|\u5305|\u4efd|\u9002\u91cf)(?=\s|$)/gi;
     let match: RegExpExecArray | null;
 
@@ -669,14 +696,22 @@ const GENERAL_CONVERSIONS: Record<string, number> = {
 };
 
 export function convertToGrams(
-  amount: number,
+  amount: number | string,
   unit: string,
   foodItemName: string,
   foodItems: FoodItem[],
   unitConversions: UnitConversion[]
 ): number {
+  // Nutrition estimates use the midpoint of a stated range; the recipe itself
+  // continues to show the original range (for example "8–10g").
+  const numericAmount = typeof amount === 'string'
+    ? (() => {
+      const parts = amount.split(/[\-–—‑]/).map((part) => parseAmountValue(part));
+      return parts.length === 2 ? (parts[0] + parts[1]) / 2 : parts[0] || 0;
+    })()
+    : amount;
   if (unit === 'g' || unit === '克') {
-    return amount;
+    return numericAmount;
   }
 
   const foodItem = foodItems.find(f => f.name.includes(foodItemName) || foodItemName.includes(f.name));
@@ -685,16 +720,16 @@ export function convertToGrams(
       u => u.foodItemId === foodItem.id && u.unit === unit
     );
     if (foodSpecificConversion) {
-      return amount * foodSpecificConversion.gramsEquivalent;
+      return numericAmount * foodSpecificConversion.gramsEquivalent;
     }
   }
 
   const generalConversion = GENERAL_CONVERSIONS[unit];
   if (generalConversion) {
-    return amount * generalConversion;
+    return numericAmount * generalConversion;
   }
 
-  return amount * 100;
+  return numericAmount * 100;
 }
 
 // Extract base name from food database entries like "牛肉（代表值，fat 9g）" → "牛肉"
@@ -835,11 +870,14 @@ export function scaleIngredients(
   const ratio = targetServings / originalServings;
   return ingredients.map(ing => ({
     ...ing,
-    amount: Math.round(ing.amount * ratio * 100) / 100,
+    amount: typeof ing.amount === 'string'
+      ? ing.amount.split(/[\-–—‑]/).map((part) => formatAmount(Math.round(parseAmountValue(part) * ratio * 100) / 100)).join('–')
+      : Math.round(ing.amount * ratio * 100) / 100,
   }));
 }
 
-export function formatAmount(amount: number): string {
+export function formatAmount(amount: number | string): string {
+  if (typeof amount === 'string') return amount.replace(/[\-—‑]/g, '–');
   if (Number.isInteger(amount)) {
     return amount.toString();
   }

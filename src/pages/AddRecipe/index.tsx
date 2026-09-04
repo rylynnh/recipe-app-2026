@@ -22,7 +22,7 @@ interface ParsedStep {
   image?: string;
 }
 
-type EditableIngredient = { name: string; amount: number; unit: string; group?: string };
+type EditableIngredient = { name: string; amount: number | string; unit: string; group?: string };
 
 const getIngredientGroupKey = (group?: string) => group || '__ungrouped__';
 
@@ -92,7 +92,7 @@ export function AddRecipe() {
   const [xiachufangSource, setXiachufangSource] = useState<{ url: string; author?: string } | null>(null);
 
   // Parsed results
-  const [ingredients, setIngredients] = useState<{ name: string; amount: number; unit: string; group?: string }[]>([]);
+  const [ingredients, setIngredients] = useState<{ name: string; amount: number | string; unit: string; group?: string }[]>([]);
   const [steps, setSteps] = useState<ParsedStep[]>([]);
   const [_newItemGroup, set_newItemGroup] = useState('');
   const [mainIngredients, setMainIngredients] = useState<string[]>([]);
@@ -1102,9 +1102,9 @@ export function AddRecipe() {
                         className="flex-1 min-w-0 px-2 py-1.5 bg-background text-primary text-sm rounded focus:outline-none focus:ring-1 focus:ring-accent/50"
                       />
                       <input
-                        type="number"
+                        type="text"
                         value={ing.amount || ''}
-                        onChange={(e) => setIngredients((prev) => prev.map((item, i) => i === index ? { ...item, amount: parseFloat(e.target.value) || 0 } : item))}
+                        onChange={(e) => setIngredients((prev) => prev.map((item, i) => i === index ? { ...item, amount: e.target.value || 0 } : item))}
                         placeholder="数量"
                         className="w-14 px-2 py-1.5 bg-background text-primary text-sm text-right rounded focus:outline-none focus:ring-1 focus:ring-accent/50"
                       />

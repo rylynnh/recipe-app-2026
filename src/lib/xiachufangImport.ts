@@ -8,7 +8,7 @@ export interface XiachufangImportResult {
   description?: string;
   tips?: string;
   coverImage?: string;
-  ingredients: Array<{ name: string; amount: number; unit: string; group?: string }>;
+  ingredients: Array<{ name: string; amount: number | string; unit: string; group?: string }>;
   steps: Array<{ content: string; image?: string }>;
 }
 
