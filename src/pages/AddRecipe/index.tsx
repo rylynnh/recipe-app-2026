@@ -593,7 +593,6 @@ export function AddRecipe() {
     if (!title.trim()) missing.push('菜谱名称');
     if (!categoryId) missing.push('分类');
     if (ingredients.length === 0) missing.push('食材');
-    if (steps.length === 0) missing.push('步骤');
     if (missing.length > 0) {
       alert(`请填写：${missing.join('、')}`);
       return;
