@@ -155,10 +155,8 @@ export function AddRecipe() {
       );
     }
     if (result.note) setNote(result.note);
-    const issues: string[] = [];
-    if (result.ingredients.length === 0) issues.push('未识别到食材，请手动添加');
-    if (result.steps.length === 0) issues.push('未识别到步骤，请手动添加');
-    if (issues.length > 0) alert(issues.join('\n'));
+    // Empty sections are valid while drafting a recipe. Keep them empty rather
+    // than interrupting the user with an alert; they can add content directly.
   };
 
   const moveStep = (fromIndex: number, toIndex: number) => {
