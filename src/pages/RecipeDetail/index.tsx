@@ -7,7 +7,7 @@ import { useFoodItemsStore } from '../../store/foodItems';
 import { ServingsAdjuster } from '../../components/ServingsAdjuster';
 import { NutritionCard } from '../../components/NutritionCard';
 import { TimerButton } from '../../components/TimerButton';
-import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDurationInText, detectMainIngredients } from '../../utils/nutrition';
+import { scaleIngredients, calculateRecipeNutrition, formatAmount, detectDurationInText, detectMainIngredients, parsePastedText } from '../../utils/nutrition';
 import { generateId } from '../../utils/parser';
 import { compressImage, getDroppedImageFiles } from '../../utils/image';
 import { resolveRecipeImage } from '../../utils/recipeImage';
@@ -77,6 +77,7 @@ export function RecipeDetail() {
   const [editIngredients, setEditIngredients] = useState<EditableIngredient[]>([]);
   const [editSteps, setEditSteps] = useState<EditableStep[]>([]);
   const [editNote, setEditNote] = useState('');
+  const [editPasteText, setEditPasteText] = useState('');
   const [editMainIngredients, setEditMainIngredients] = useState<string[]>([]);
   const [editTagInput, setEditTagInput] = useState('');
   const [editCoverDragOver, setEditCoverDragOver] = useState(false);
@@ -332,6 +333,7 @@ export function RecipeDetail() {
       setEditIngredients(coalesceIngredientGroups(recipe.ingredients.map(ing => ({ ...ing }))));
       setEditSteps(recipe.steps.map(step => ({ ...step, detectedDurationSeconds: step.detectedDurationSeconds || 0 })));
       setEditNote(recipe.note || '');
+      setEditPasteText('');
       setEditMainIngredients(recipe.mainIngredient);
       setEditTagInput('');
       // Reset group selector
@@ -438,6 +440,35 @@ export function RecipeDetail() {
     });
 
     setIsEditing(false);
+  };
+
+  const handleParseEditText = () => {
+    if (!editPasteText.trim()) return;
+    const parsed = parsePastedText(editPasteText);
+    if (parsed.title) setEditTitle(parsed.title);
+    if (parsed.ingredients.length > 0) {
+      const nextIngredients = coalesceIngredientGroups(parsed.ingredients.map((ingredient) => ({
+        ...ingredient,
+        id: generateId(),
+      })));
+      setEditIngredients(nextIngredients);
+      setEditMainIngredients((current) => Array.from(new Set([
+        ...current,
+        ...detectMainIngredients(nextIngredients),
+      ])));
+    }
+    if (parsed.steps.length > 0) {
+      setEditSteps(parsed.steps.map((content) => {
+        const duration = detectDurationInText(content);
+        return {
+          id: generateId(),
+          content,
+          hasTimer: duration > 0,
+          detectedDurationSeconds: duration,
+        };
+      }));
+    }
+    if (parsed.note) setEditNote(parsed.note);
   };
 
   const handleCancelEdit = () => {
@@ -665,6 +696,28 @@ export function RecipeDetail() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Re-parse recipe text */}
+            <div className="card p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-sm font-medium text-primary">粘贴完整文字</label>
+                {editPasteText && (
+                  <button type="button" onClick={() => setEditPasteText('')} className="text-xs text-secondary hover:text-primary">
+                    × 清空
+                  </button>
+                )}
+              </div>
+              <textarea
+                value={editPasteText}
+                onChange={(event) => setEditPasteText(event.target.value)}
+                placeholder="可粘贴食材、步骤和小贴士，解析后会更新已识别到的内容。"
+                rows={7}
+                className="w-full resize-y rounded-input bg-background px-3 py-2 text-sm text-primary outline-none ring-1 ring-divider focus:ring-accent"
+              />
+              <button type="button" onClick={handleParseEditText} className="mt-3 rounded-input bg-accent px-4 py-2 text-sm text-white hover:bg-accent/90">
+                解析文字
+              </button>
             </div>
 
             {/* Tags */}
