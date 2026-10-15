@@ -300,6 +300,18 @@ export function parsePastedText(text: string): {
     // Amount pattern: fraction (1/4) or decimal/integer (100, 0.5) — fraction first so it wins
     const AMOUNT = '(\\d+(?:\\.\\d+)?\\s*\\/\\s*\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)';
     const RANGE_AMOUNT = '(\\d+(?:\\.\\d+)?)\\s*[-–—‑]\\s*(\\d+(?:\\.\\d+)?)';
+    // A food name may itself contain digits, for example "T55面包粉". Match
+    // a known *trailing* unit first so the grade number is not mistaken for
+    // the amount. The generic fallback below remains for unusual units.
+    const KNOWN_UNIT = '(kg|g|ml|mL|l|千克|公斤|克|毫升|升|斤|两|个|只|根|片|瓣|把|勺|茶匙|汤匙|大勺|小勺|杯|碗|包|袋|盒|罐|瓶|份|块|颗|条|头|段|撮|滴|圈|层|张|枚)';
+    const namedCodeMatch = trimmed.match(new RegExp(`^([\\u4e00-\\u9fa5a-zA-Z0-9/\\s\\(\\)（）]+?)\\s*[-–—~～:：]?\\s*${AMOUNT}\\s*${KNOWN_UNIT}\\s*(?:[（(][^（）()]*[）)])?\\s*$`, 'i'));
+    if (namedCodeMatch) {
+      const name = namedCodeMatch[1].trim();
+      const unit = namedCodeMatch[3].trim();
+      if (name && name.length <= 20 && !['小时', '分钟', '秒', '度', '℃'].includes(unit)) {
+        return makeIngredient(name, parseAmountValue(namedCodeMatch[2]), unit);
+      }
+    }
     // Range quantities are common in baking recipes, e.g.
     // "有盐黄油：每个 8-10g". Store the displayed range rather than silently
     // choosing one endpoint, so it remains editable and visible in the recipe.
