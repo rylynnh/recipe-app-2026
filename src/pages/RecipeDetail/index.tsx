@@ -825,7 +825,25 @@ export function RecipeDetail() {
                           >
                             <Menu className="h-3.5 w-3.5" strokeWidth={1.5} />
                           </button>
-                          <span className="text-xs font-medium text-accent">{ing.group}</span>
+                          <input
+                            key={ing.group}
+                            defaultValue={ing.group}
+                            aria-label={`修改分组名称 ${ing.group}`}
+                            title="点击修改分组名称"
+                            onBlur={(event) => {
+                              const name = event.target.value.trim();
+                              if (!name) { event.target.value = ing.group || ''; return; }
+                              if (name === ing.group) return;
+                              setEditIngredients((prev) => coalesceIngredientGroups(prev.map((item) => item.group === ing.group ? { ...item, group: name } : item)));
+                              setNewIngGroup((current) => current === ing.group ? name : current);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.nativeEvent.isComposing) return;
+                              if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
+                              if (event.key === 'Escape') { event.currentTarget.value = ing.group || ''; event.currentTarget.blur(); }
+                            }}
+                            className="min-w-0 w-32 rounded bg-transparent text-xs font-medium text-accent outline-none focus:ring-1 focus:ring-accent/40"
+                          />
                           <span className="flex-1 h-px bg-divider/50"></span>
                         </div>
                       )}
