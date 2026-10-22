@@ -188,7 +188,7 @@ export function Home() {
         <section className="px-5 pb-8 pt-7">
           <p className="mb-3 text-[11px] uppercase tracking-[0.16em] text-accent">Summer / 2026</p>
           <h1 className="font-display max-w-[11ch] text-[42px] font-medium leading-[1.04] tracking-[-0.035em] text-primary">一切，就位。</h1>
-          <p className="mt-4 max-w-[29ch] text-[14px] leading-7 text-secondary">以准确的分量、时间和火候，完成值得反复练习的一餐。</p>
+          <p className="mt-4 text-[14px] leading-7 text-secondary">以准确的分量、时间和火候，完成值得反复练习的一餐。</p>
         </section>
 
         <section>
