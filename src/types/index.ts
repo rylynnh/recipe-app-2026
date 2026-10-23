@@ -17,6 +17,7 @@ export interface Recipe {
   createdAt: number;
   updatedAt: number;
   note?: string;
+  description?: string;
   favorited?: boolean;
 }
 

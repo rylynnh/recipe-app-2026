@@ -308,6 +308,8 @@ function dbRowToRecipe(row: any): Recipe {
     sourceType: row.source_type,
     sourceSnapshot: row.source_snapshot ?? undefined,
     note: row.note ?? undefined,
+    description: row.description ?? undefined,
+    totalTimeMinutes: row.total_time_minutes ?? undefined,
     favorited: row.favorited ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

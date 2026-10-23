@@ -21,12 +21,12 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur" style={{ borderTop: '0.5px solid var(--color-divider)' }}>
-      <div className="mx-auto flex h-[64px] max-w-lg items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto flex min-h-[64px] max-w-lg items-center justify-around px-2 pb-[env(safe-area-inset-bottom)]">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const active = tab.id === '/' ? location.pathname === '/' : location.pathname.startsWith(tab.id);
           return (
-            <button key={tab.id} type="button" onClick={() => navigate(tab.id)} className={`flex h-full flex-1 flex-col items-center justify-center transition-colors ${active ? 'text-accent' : 'text-secondary/70'}`}>
+            <button key={tab.id} type="button" aria-current={active ? 'page' : undefined} onClick={() => navigate(tab.id)} className={`flex min-h-[64px] flex-1 flex-col items-center justify-center transition-colors ${active ? 'text-primary' : 'text-secondary'}`}>
               <Icon className={`mb-0.5 h-[22px] w-[22px] transition-transform ${active ? 'scale-110' : ''}`} strokeWidth={active ? 2.1 : 1.7} />
               <span className={`text-[11px] ${active ? 'font-semibold' : 'font-normal'}`}>{tab.label}</span>
             </button>

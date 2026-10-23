@@ -4,6 +4,7 @@ import { mockRecipes } from '../data/mock';
 import { saveToStorage, loadFromStorage, STORAGE_KEYS } from '../utils/storage';
 import { generateId } from '../utils/parser';
 import { detectMainIngredients } from '../utils/nutrition';
+import { notify } from './feedback';
 import {
   loadAllFromSupabase,
   syncRecipeToSupabase,
@@ -378,7 +379,8 @@ export const useRecipesStore = create<RecipesStore>((set, get) => ({
       const favoriteIds = state.favoriteIds.includes(id)
         ? state.favoriteIds.filter((favoriteId) => favoriteId !== id)
         : [...state.favoriteIds, id];
-      saveToStorage(STORAGE_KEYS.FAVORITE_IDS, favoriteIds);
+      if (!saveToStorage(STORAGE_KEYS.FAVORITE_IDS, favoriteIds)) return state;
+      notify(favoriteIds.includes(id) ? '已加入收藏' : '已取消收藏');
       return { favoriteIds };
     });
   },

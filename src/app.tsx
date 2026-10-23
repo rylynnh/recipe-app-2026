@@ -4,6 +4,7 @@ import { BottomNav } from './components/BottomNav';
 import { useRecipesStore } from './store/recipes';
 import { useTodosStore } from './store/todos';
 import { useFoodItemsStore } from './store/foodItems';
+import { FeedbackToast } from './components/FeedbackToast';
 
 export function App() {
   const location = useLocation();
@@ -16,12 +17,11 @@ export function App() {
       refreshTodos();
       refreshFoodItems();
     });
-  }, []);
+  }, [initFromSupabase, refreshTodos, refreshFoodItems]);
 
   const hideNavPaths = [
     '/recipe/',
     '/add',
-    '/favorites',
     '/food-items',
     '/conversions',
     '/settings',
@@ -30,9 +30,10 @@ export function App() {
   const showNav = !hideNavPaths.some((path) => location.pathname.startsWith(path));
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mise-app min-h-screen bg-background">
       <Outlet />
       {showNav && <BottomNav />}
+      <FeedbackToast />
     </div>
   );
 }

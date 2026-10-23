@@ -1,93 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronRight, LockKeyhole, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowLeft, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useRecipesStore } from '../../store/recipes';
 import { useTodosStore } from '../../store/todos';
 import { useFoodItemsStore } from '../../store/foodItems';
-import { ADMIN_MODE_EVENT, disableAdminMode, enableAdminMode, isAdminMode } from '../../lib/adminMode';
-import { verifyAdminPin } from '../../lib/adminRecipeSync';
+import { ADMIN_MODE_EVENT, disableAdminMode, isAdminMode } from '../../lib/adminMode';
+import { AdminPinDialog } from '../../components/AdminPinDialog';
+import { ConfirmDialog } from '../../components/Modal';
+import { notify } from '../../store/feedback';
 
 type ClearType = 'all' | 'recipes' | 'todos' | 'food';
-
+const labels:Record<ClearType,string>={all:'全部数据',recipes:'全部菜谱',todos:'全部待办记录',food:'全部食材数据'};
 export function Settings() {
-  const navigate = useNavigate();
-  const { clearAllRecipes } = useRecipesStore();
-  const { clearAllTodos } = useTodosStore();
-  const { clearAllFoodItems } = useFoodItemsStore();
-  const [admin, setAdmin] = useState(isAdminMode());
-  const [pin, setPin] = useState('');
-  const [pinOpen, setPinOpen] = useState(false);
-  const [pinError, setPinError] = useState('');
-  const [checking, setChecking] = useState(false);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [clearType, setClearType] = useState<ClearType>('all');
-
-  useEffect(() => {
-    const update = () => setAdmin(isAdminMode());
-    window.addEventListener(ADMIN_MODE_EVENT, update);
-    return () => window.removeEventListener(ADMIN_MODE_EVENT, update);
-  }, []);
-
-  const unlock = async () => {
-    if (!pin.trim()) return setPinError('请输入管理 PIN');
-    setChecking(true);
-    setPinError('');
-    const result = await verifyAdminPin(pin);
-    setChecking(false);
-    if (!result.ok) return setPinError('PIN 不正确，请重试');
-    enableAdminMode(pin);
-    setPin('');
-    setPinOpen(false);
+  const navigate=useNavigate();
+  const {clearAllRecipes}=useRecipesStore();
+  const {clearAllTodos}=useTodosStore();
+  const {clearAllFoodItems}=useFoodItemsStore();
+  const [admin,setAdmin]=useState(isAdminMode);
+  const [pinOpen,setPinOpen]=useState(false);
+  const [clearType,setClearType]=useState<ClearType|null>(null);
+  useEffect(()=>{const update=()=>setAdmin(isAdminMode());window.addEventListener(ADMIN_MODE_EVENT,update);return()=>window.removeEventListener(ADMIN_MODE_EVENT,update);},[]);
+  const clear=()=>{
+    if(clearType==='recipes'||clearType==='all')clearAllRecipes();
+    if(clearType==='todos'||clearType==='all')clearAllTodos();
+    if(clearType==='food'||clearType==='all')clearAllFoodItems();
+    setClearType(null);notify('数据已清空');
   };
-
-  const clear = () => {
-    if (clearType === 'recipes' || clearType === 'all') clearAllRecipes();
-    if (clearType === 'todos' || clearType === 'all') clearAllTodos();
-    if (clearType === 'food' || clearType === 'all') clearAllFoodItems();
-    setShowClearConfirm(false);
-  };
-
-  const clearLabel: Record<ClearType, string> = {
-    all: '所有本机数据', recipes: '所有菜谱', todos: '所有待办', food: '所有食材',
-  };
-  const remove = (type: ClearType) => { setClearType(type); setShowClearConfirm(true); };
-
-  return <div className="min-h-screen bg-background pb-20">
-    <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm px-4 py-4 border-b border-divider flex items-center gap-4">
-      <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-divider/50 rounded-full"><ArrowLeft className="w-5 h-5 text-primary" /></button>
-      <h1 className="font-display text-xl font-medium text-primary">设置</h1>
-    </header>
-
-    <main className="px-4 py-4 space-y-4">
-      <section className="card overflow-hidden">
-        <div className="p-4 border-b border-divider"><h2 className="font-display text-base text-primary">管理模式</h2></div>
-        {admin ? <>
-          <div className="p-4 flex gap-3 items-start">
-            <ShieldCheck className="w-5 h-5 text-accent mt-0.5" />
-            <div><p className="text-sm text-primary">已解锁</p><p className="text-xs text-secondary mt-1">本次会话中的菜谱新增、编辑和删除会同步到云端。</p></div>
-          </div>
-          <button onClick={disableAdminMode} className="w-full px-4 py-3 border-t border-divider text-sm text-danger text-left">退出管理模式</button>
-        </> : <button onClick={() => setPinOpen(true)} className="w-full p-4 flex items-center justify-between text-left">
-          <span className="flex items-center gap-3"><LockKeyhole className="w-5 h-5 text-secondary" /><span><span className="block text-sm text-primary">解锁管理模式</span><span className="block text-xs text-secondary mt-1">输入 PIN 后才会同步菜谱到云端。</span></span></span><ChevronRight className="w-5 h-5 text-secondary" />
-        </button>}
-      </section>
-
-      <p className="px-1 text-xs leading-5 text-secondary">未开启管理模式时，新增菜谱、收藏和待办只保存在当前设备；公开菜谱仍可正常浏览。</p>
-
-      <section className="card overflow-hidden">
-        <div className="p-4 border-b border-divider"><h2 className="font-display text-base text-primary">本机数据</h2></div>
-        {[['recipes', '清除本机菜谱'], ['todos', '清除本机待办'], ['food', '清除本机食材'], ['all', '清除全部本机数据']].map(([type, label]) => <button key={type} onClick={() => remove(type as ClearType)} className="w-full p-4 border-b last:border-0 border-divider text-left text-sm text-danger">{label}</button>)}
-      </section>
-      <section className="card p-4 flex justify-between text-sm"><span className="text-primary">数据存储</span><span className="text-secondary">本机 · 管理菜谱可同步</span></section>
+  return <div className="mise-shell">
+    <header className="mise-page-heading"><button className="mise-icon-button" aria-label="返回上一页" onClick={()=>navigate(-1)}><ArrowLeft size={19}/></button><div><p className="mise-eyebrow">SETTINGS</p><h1>设置</h1></div></header>
+    <main className="mise-page-content">
+      <section className="mise-settings-section"><h2>管理模式</h2><div className="flex items-center gap-3 mb-3">{admin?<ShieldCheck size={20}/>:<LockKeyhole size={20}/>}<span className="text-sm">{admin?'已解锁':'尚未解锁'}</span></div><p>管理模式用于收录和编辑菜谱，修改可同步至云端。收藏保留在当前设备，待办记录按当前同步设置保存。</p><button className="mise-secondary-button mt-4" onClick={()=>{if(admin){disableAdminMode();notify('已退出管理模式');}else setPinOpen(true);}}>{admin?'退出管理模式':'解锁管理模式'}</button></section>
+      <section className="mise-settings-section"><h2>数据管理</h2><p>清空操作无法撤销，请先确认不再需要这些内容。</p><div className="mt-3">{(['recipes','todos','food','all'] as const).map(type=><button key={type} className="block w-full border-t border-divider py-3 text-left text-sm text-danger" onClick={()=>setClearType(type)}>清空{labels[type]}</button>)}</div></section>
     </main>
-
-    {pinOpen && <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-card rounded-card p-6 w-full max-w-sm"><h3 className="font-display text-lg text-primary">解锁管理模式</h3><p className="text-sm text-secondary mt-2">PIN 仅用于本次浏览器会话验证。</p>
-        <input autoFocus type="password" inputMode="text" value={pin} onChange={(e) => setPin(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void unlock()} placeholder="管理 PIN" className="mt-5 w-full rounded-input border border-divider bg-background px-3 py-3 text-primary outline-none focus:border-accent" />
-        {pinError && <p className="mt-2 text-sm text-danger">{pinError}</p>}
-        <div className="mt-5 flex gap-3"><button onClick={() => { setPinOpen(false); setPinError(''); }} className="flex-1 py-3 text-secondary">取消</button><button disabled={checking} onClick={() => void unlock()} className="flex-1 py-3 rounded-input bg-primary text-white disabled:opacity-60">{checking ? '验证中…' : '解锁'}</button></div>
-      </div>
-    </div>}
-    {showClearConfirm && <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"><div className="bg-card rounded-card p-6 w-full max-w-sm"><Trash2 className="w-7 h-7 text-danger mb-3" /><h3 className="font-display text-lg text-primary">确认清除</h3><p className="mt-2 text-sm text-secondary">确定清除{clearLabel[clearType]}吗？此操作无法撤销。</p><div className="mt-5 flex gap-3"><button onClick={() => setShowClearConfirm(false)} className="flex-1 py-3 text-secondary">取消</button><button onClick={clear} className="flex-1 py-3 rounded-input bg-danger text-white">清除</button></div></div></div>}
+    <AdminPinDialog open={pinOpen} onCancel={()=>setPinOpen(false)} onUnlocked={()=>{setPinOpen(false);notify('管理模式已解锁');}}/>
+    {clearType&&<ConfirmDialog title={`清空${labels[clearType]}？`} description={`此操作无法恢复。${admin&&(clearType==='recipes'||clearType==='all')?'当前处于管理模式，菜谱清空操作也会同步至云端。':'仅继续清空你已确认不再需要的数据。'}`} confirmLabel="确认清空" onConfirm={clear} onCancel={()=>setClearType(null)}/>}
   </div>;
 }

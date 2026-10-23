@@ -1,3 +1,4 @@
+import { displayRecipeTitle } from './recipeTitle';
 import { Recipe } from '../types';
 import { resolveRecipeImage } from './recipeImage';
 import { formatAmount } from './nutrition';
@@ -56,7 +57,7 @@ export async function createRecipeShareImage(recipe: Recipe): Promise<Blob> {
   if (!previewContext) throw new Error('无法创建分享图片');
   const contentWidth = CANVAS_WIDTH - PADDING * 2;
   previewContext.font = '54px "Songti SC", "STSong", serif';
-  const titleLines = wrapText(previewContext, recipe.title, contentWidth);
+  const titleLines = wrapText(previewContext, displayRecipeTitle(recipe), contentWidth);
   previewContext.font = '32px "PingFang SC", "Microsoft YaHei", sans-serif';
   const ingredientLines = recipe.ingredients.flatMap((ingredient) => wrapText(previewContext, `${ingredient.name}${ingredient.amount || ingredient.unit ? `  ${ingredient.amount ? formatAmount(ingredient.amount) : ''}${ingredient.unit}` : ''}`, contentWidth));
   previewContext.font = '30px "PingFang SC", "Microsoft YaHei", sans-serif';

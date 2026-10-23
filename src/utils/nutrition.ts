@@ -906,7 +906,7 @@ export function formatAmount(amount: number | string): string {
   if (Number.isInteger(amount)) {
     return amount.toString();
   }
-  return amount.toFixed(amount < 1 ? 2 : 1);
+  return Number(amount.toPrecision(12)).toString();
 }
 
 // Auto-detect main ingredient tags from ingredient list

@@ -5,6 +5,7 @@ const origins = new Set([
   "https://recipe-app-2026-one.vercel.app",
   "https://rylynnh.github.io",
   "http://localhost:5173",
+  "http://127.0.0.1:5175",
 ]);
 const cors = (origin: string | null) => ({
   "Content-Type": "application/json",
@@ -74,8 +75,17 @@ Deno.serve(async (req) => {
     }
     if (body.action === "upsert" && body.recipe && typeof body.recipe === "object") {
       const r = body.recipe;
+      const metadata: { description?: string | null; total_time_minutes?: number | null } = {};
+      if (Object.prototype.hasOwnProperty.call(r, "description")) {
+        if (typeof r.description !== "string" || r.description.trim().length > 80) return respond({ ok: false, error: "Invalid description" }, 400, origin);
+        metadata.description = r.description.trim() || null;
+      }
+      if (Object.prototype.hasOwnProperty.call(r, "totalTimeMinutes")) {
+        if (!Number.isSafeInteger(r.totalTimeMinutes) || r.totalTimeMinutes < 0 || r.totalTimeMinutes > 2147483647) return respond({ ok: false, error: "Invalid duration" }, 400, origin);
+        metadata.total_time_minutes = r.totalTimeMinutes || null;
+      }
       const imageUrl = await persistImage(admin, r.image, r.id);
-      const baseRow = { id: r.id, title: r.title, image: imageUrl, category: r.category, category_id: r.categoryId, base_servings: r.baseServings, ingredients: r.ingredients ?? [], steps: r.steps ?? [], source_type: r.sourceType, source_snapshot: r.sourceSnapshot ?? null, note: r.note ?? null, created_at: r.createdAt, updated_at: r.updatedAt, tags: r.structureTag ? [r.structureTag] : [] };
+      const baseRow = { ...metadata, id: r.id, title: r.title, image: imageUrl, category: r.category, category_id: r.categoryId, base_servings: r.baseServings, ingredients: r.ingredients ?? [], steps: r.steps ?? [], source_type: r.sourceType, source_snapshot: r.sourceSnapshot ?? null, note: r.note ?? null, created_at: r.createdAt, updated_at: r.updatedAt, tags: r.structureTag ? [r.structureTag] : [] };
       const fullRow = { ...baseRow, structure_tag: r.structureTag, main_ingredient: r.mainIngredient ?? [], favorited: false };
       let { error } = await admin.from("recipes").upsert(fullRow);
       if (error && (error.code === "PGRST204" || error.message?.includes("column"))) ({ error } = await admin.from("recipes").upsert(baseRow));

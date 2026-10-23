@@ -18,7 +18,7 @@ export default {
       },
       fontFamily: {
         display: ['"New York"', 'Georgia', '"Songti SC"', 'serif'],
-        sans: ['-apple-system', '"SF Pro"', '"PingFang SC"', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        sans: ['-apple-system', '"SF Pro"', '"PingFang SC"', '"Microsoft YaHei"', '"Segoe UI"', 'Roboto', 'sans-serif'],
         mono: ['"SF Mono"', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       borderRadius: {

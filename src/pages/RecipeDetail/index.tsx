@@ -1,3 +1,6 @@
+import { notify } from '../../store/feedback';
+import { Modal, ConfirmDialog } from '../../components/Modal';
+import { displayRecipeTitle } from '../../utils/recipeTitle';
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bookmark, BookmarkCheck, Edit, Heart, Save, X, Camera, Plus, Trash2, Crop, Check, RotateCcw, Menu, Timer, Share2, Loader2 } from 'lucide-react';
@@ -16,6 +19,8 @@ import { AdminPinDialog } from '../../components/AdminPinDialog';
 import { useAdminGate } from '../../hooks/useAdminGate';
 import { createRecipeShareImage } from '../../utils/recipeShare';
 import { formatServingAmount, parseServingAmount } from '../../utils/servings';
+import { recipeTime } from '../../utils/recipePresentation';
+import { ImageViewer } from '../../components/ImageViewer';
 
 type EditableIngredient = { id: string; name: string; amount: number | string; unit: string; group?: string };
 type EditableStep = { id: string; content: string; hasTimer: boolean; detectedDurationSeconds: number; timerManuallyEdited?: boolean; image?: string };
@@ -55,7 +60,7 @@ export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getRecipeById, updateRecipe, deleteRecipe, toggleFavorite, favoriteIds, initialized } = useRecipesStore();
-  const { addTodo, getTodoByRecipeId, toggleTodo } = useTodosStore();
+  const { addTodo, getPendingTodos, removeTodo } = useTodosStore();
   const { foodItems, unitConversions, categories } = useFoodItemsStore();
   const { pinDialogOpen, requireAdmin, cancelAdminUnlock, continueAfterUnlock } = useAdminGate();
 
@@ -66,6 +71,7 @@ export function RecipeDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [isPreparingShare, setIsPreparingShare] = useState(false);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
+  const [viewingImage, setViewingImage] = useState<{ src: string; alt: string } | null>(null);
 
   // Edit form state
   const [editTitle, setEditTitle] = useState('');
@@ -314,7 +320,7 @@ export function RecipeDetail() {
     setDragType(null);
   };
 
-  const todo = recipe ? getTodoByRecipeId(recipe.id) : undefined;
+  const todo = recipe ? getPendingTodos().find((item) => item.recipeId === recipe.id) : undefined;
 
   useEffect(() => {
     if (recipe) {
@@ -324,7 +330,7 @@ export function RecipeDetail() {
 
   useEffect(() => {
     if (isEditing && recipe) {
-      setEditTitle(recipe.title);
+      setEditTitle(displayRecipeTitle(recipe));
       setEditCategory(recipe.category);
       setEditCategoryId(recipe.categoryId);
       setEditBaseServings(recipe.baseServings);
@@ -373,7 +379,7 @@ export function RecipeDetail() {
 
   const handleAddTodo = () => {
     if (todo) {
-      toggleTodo(todo.id);
+      removeTodo(todo.id);
     } else {
       addTodo(recipe.id);
     }
@@ -383,10 +389,10 @@ export function RecipeDetail() {
     setIsPreparingShare(true);
     try {
       const blob = await createRecipeShareImage(recipe);
-      const file = new File([blob], `${recipe.title}-MISE\u83DC\u8C31.jpg`, { type: 'image/jpeg' });
+      const file = new File([blob], `${displayRecipeTitle(recipe)}-MISE\u83DC\u8C31.jpg`, { type: 'image/jpeg' });
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
         try {
-          await navigator.share({ title: recipe.title, text: `MISE \u83DC\u8C31\uFF5C${recipe.title}`, files: [file] });
+          await navigator.share({ title: displayRecipeTitle(recipe), text: `MISE \u83DC\u8C31\uFF5C${displayRecipeTitle(recipe)}`, files: [file] });
           return;
         } catch (error) {
           if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -395,7 +401,7 @@ export function RecipeDetail() {
       setShareImageUrl(URL.createObjectURL(blob));
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      alert(error instanceof Error ? error.message : '\u5206\u4EAB\u56FE\u7247\u751F\u6210\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002');
+      notify(error instanceof Error ? error.message : '\u5206\u4EAB\u56FE\u7247\u751F\u6210\u5931\u8D25\uFF0C\u8BF7\u91CD\u8BD5\u3002', 'error');
     } finally {
       setIsPreparingShare(false);
     }
@@ -403,7 +409,7 @@ export function RecipeDetail() {
 
   const handleSaveEdit = () => {
     if (!editTitle.trim()) {
-      alert('请输入菜谱名称');
+      notify('请输入菜谱名称', 'error');
       return;
     }
 
@@ -439,6 +445,7 @@ export function RecipeDetail() {
       mainIngredient: editMainIngredients,
     });
 
+    notify('菜谱更改已保存');
     setIsEditing(false);
   };
 
@@ -583,7 +590,7 @@ export function RecipeDetail() {
 
   if (isEditing) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="mise-form min-h-screen bg-background">
         <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm px-4 py-4 border-b border-divider flex items-center gap-4">
           <button
             onClick={handleCancelEdit}
@@ -622,12 +629,12 @@ export function RecipeDetail() {
             <div className="card p-4">
               <label className="block text-sm font-medium text-primary mb-2">封面图片</label>
               {editImage && !isCropping ? (
-                <div className="relative w-full rounded-lg overflow-hidden" style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}>
+                <div className="mise-edit-cover relative w-full rounded-lg overflow-hidden">
                   <img
                     ref={cropImageRef}
                     src={editImage}
                     alt="封面预览"
-                    className="w-full h-full object-cover"
+                    className="mise-edit-cover-image"
                   />
                   <button
                     onClick={removeEditImage}
@@ -637,6 +644,7 @@ export function RecipeDetail() {
                   </button>
                   <button
                     onClick={() => startCrop()}
+                    aria-label="调整封面裁剪"
                     className="absolute bottom-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
                   >
                     <Crop className="w-4 h-4" />
@@ -719,7 +727,6 @@ export function RecipeDetail() {
                 解析文字
               </button>
             </div>
-
             {/* Tags */}
             <div className="card p-4">
               <div className="flex items-center justify-between mb-3">
@@ -742,7 +749,7 @@ export function RecipeDetail() {
 
             {/* Servings */}
             <div className="card p-4">
-              <label className="block text-sm font-medium text-primary mb-2">份量</label>
+              <label className="block text-sm font-medium text-primary mb-2">配方基准量</label>
               <input
                 type="text"
                 inputMode="text"
@@ -1167,31 +1174,7 @@ export function RecipeDetail() {
           </div>
         </main>
 
-        {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-card rounded-card p-6 w-full max-w-sm">
-              <h3 className="font-display text-lg font-medium text-primary mb-2">确认删除</h3>
-              <p className="text-secondary text-sm mb-6">删除后无法恢复，确定要删除这个菜谱吗？</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-2 bg-background text-primary rounded-input hover:bg-divider/50 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={() => {
-                    deleteRecipe(recipe.id);
-                    navigate('/mine');
-                  }}
-                  className="flex-1 py-2 bg-danger text-white rounded-input hover:bg-danger/90 transition-colors"
-                >
-                  删除
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {showDeleteConfirm && <ConfirmDialog title="删除这道菜谱？" description="删除后无法恢复，请确认不再需要这份配方。" confirmLabel="删除菜谱" onCancel={() => setShowDeleteConfirm(false)} onConfirm={() => { deleteRecipe(recipe.id); notify('菜谱已删除'); navigate('/mine'); }} />}
         <AdminPinDialog
           open={pinDialogOpen}
           onCancel={cancelAdminUnlock}
@@ -1202,39 +1185,34 @@ export function RecipeDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm px-5 py-4 flex items-center gap-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
+    <div className="mise-detail min-h-screen bg-background">
+      <header className="mise-detail-header sticky top-0 z-30 bg-background/95 backdrop-blur-sm px-5 py-3 flex items-center gap-2" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
         <button
           onClick={() => navigate(-1)}
+          aria-label="返回上一页"
           className="p-2 -ml-2 hover:bg-divider/50 rounded-full transition-colors"
         >
           <ArrowLeft className="w-5 h-5 text-primary" />
         </button>
-        <h1 className="font-display text-[20px] font-medium text-primary flex-1 truncate">
-          {recipe.title}
-        </h1>
-        <button
-          onClick={requestEditing}
-          className="p-2 hover:bg-divider/50 rounded-full transition-colors text-secondary"
-          title="编辑菜谱"
-        >
-          <Edit className="w-5 h-5" />
-        </button>
+        <span className="font-display text-[20px] tracking-[0.1em] text-primary flex-1">MISE</span>
         <button
           onClick={() => toggleFavorite(recipe.id)}
           className={`p-2 hover:bg-divider/50 rounded-full transition-colors ${
             isFavorited ? 'text-accent' : 'text-secondary'
           }`}
           title={isFavorited ? '取消收藏' : '收藏'}
+          aria-label={isFavorited ? '取消收藏' : '收藏'}
+          aria-pressed={isFavorited}
         >
           <Heart className={`w-5 h-5 ${isFavorited ? 'fill-current' : ''}`} />
         </button>
         <button
           onClick={handleAddTodo}
           className={`p-2 hover:bg-divider/50 rounded-full transition-colors ${
-            todo?.isCompleted ? 'text-accent' : 'text-secondary'
+            todo ? 'text-accent' : 'text-secondary'
           }`}
-          title={todo ? '取消待办' : '加入待办'}
+          title={todo ? '移出待办' : '加入待办'}
+          aria-label={todo ? '移出待办' : '加入待办'}
         >
           {todo ? (
             <BookmarkCheck className="w-5 h-5" />
@@ -1242,63 +1220,39 @@ export function RecipeDetail() {
             <Bookmark className="w-5 h-5" />
           )}
         </button>
-        <button
-          onClick={handleShareRecipe}
-          disabled={isPreparingShare}
-          className="p-2 -mr-2 hover:bg-divider/50 rounded-full transition-colors text-secondary disabled:opacity-50"
-          title={'\u5206\u4EAB\u83DC\u8C31'}
-          aria-label={'\u5206\u4EAB\u83DC\u8C31'}
-        >
-          {isPreparingShare ? <Loader2 className="w-5 h-5 animate-spin" /> : <Share2 className="w-5 h-5" />}
-        </button>
+        <details className="relative">
+          <summary className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center text-secondary" aria-label="更多菜谱操作"><Menu className="w-5 h-5" /></summary>
+          <div className="absolute right-0 top-full w-44 border border-divider bg-card p-2 shadow-sm"><button onClick={requestEditing} className="flex min-h-11 w-full items-center gap-2 px-2 text-sm text-primary"><Edit size={16} />编辑菜谱</button><button onClick={handleShareRecipe} disabled={isPreparingShare} className="flex min-h-11 w-full items-center gap-2 px-2 text-sm text-primary disabled:opacity-50">{isPreparingShare ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}分享菜谱</button></div>
+        </details>
       </header>
 
       <main className="px-5 py-5">
+        <div className="mise-detail-title"><p className="mise-eyebrow">RECIPE / {recipe.structureTag}</p><h1>{displayRecipeTitle(recipe)}</h1>{recipeTime(recipe) && <div className="mise-detail-meta"><span>用时 {recipeTime(recipe)}</span></div>}</div>
         {recipe.image && (
-          <div className="w-full rounded-card overflow-hidden mb-5" style={{ aspectRatio: '4/3' }}>
+          <button type="button" className="mise-detail-cover" aria-label={`查看完整图片：${displayRecipeTitle(recipe)}`} onClick={() => setViewingImage({ src: resolveRecipeImage(recipe.image), alt: displayRecipeTitle(recipe) })}>
             <img
               src={resolveRecipeImage(recipe.image)}
-              alt={recipe.title}
-              className="w-full h-full object-cover"
+              alt={displayRecipeTitle(recipe)}
+              className="mise-detail-cover-image"
             />
-          </div>
+            <span className="mise-image-hint"><Crop size={13} />查看全图</span>
+          </button>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap mb-5">
-          <span
-            className="px-2.5 py-1 text-[12px] rounded"
-            style={{
-              border: '1px solid var(--color-divider)',
-              color: 'var(--color-text-secondary)',
-            }}
-          >
-            {recipe.structureTag}
-          </span>
-          {recipe.mainIngredient.map((tag) => (
-            <span
-              key={tag}
-              className="px-2.5 py-1 text-[12px] rounded"
-              style={{
-                border: '1px solid var(--color-divider)',
-                color: 'var(--color-text-secondary)',
-                opacity: 0.7,
-              }}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {recipe.description && <p className="mise-detail-description">{recipe.description}</p>}
+        {recipe.mainIngredient.length > 0 && <div className="flex items-center gap-2 flex-wrap my-5" aria-label="食材标签">{recipe.mainIngredient.map(tag => <span key={tag} className="border border-divider px-2.5 py-1 text-[12px] text-secondary rounded">{tag}</span>)}</div>}
 
         <div className="card mb-4 p-5">
           <ServingsAdjuster
             currentServings={servings}
             onChange={setServings}
+            baseServings={recipe.baseServings}
           />
         </div>
 
-        <div className="card mb-4">
+        <div className="card mise-detail-section">
           <div className="px-5 py-4" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
-            <h3 className="font-display text-[16px] font-medium text-accent">食材</h3>
+            <h2 className="font-display text-[21px] font-medium text-primary">食材清单</h2>
           </div>
           <div className="divide-y divide-divider">
             {(() => {
@@ -1324,14 +1278,14 @@ export function RecipeDetail() {
                 <div key={group.name || '_ungrouped'}>
                   {group.name && (
                     <div className="px-5 pt-3 pb-1">
-                      <span className="text-xs font-medium text-accent/70">{group.name}</span>
+                      <span className="text-xs font-medium text-secondary">{group.name}</span>
                     </div>
                   )}
                   {group.items.map((ing) => (
-                    <div key={ing.id} className="flex items-center justify-between px-5 py-3.5">
-                      <span className="text-secondary text-[15px]">{ing.name}</span>
+                    <div key={ing.id} className="mise-ingredient-row flex items-center justify-between px-5 py-3.5">
+                      <span className="text-primary text-[15px]">{ing.name}</span>
                       {(ing.amount !== 0 || ing.unit) && (
-                        <span className="font-mono-digit text-accent text-[15px]">
+                        <span className="font-mono-digit text-primary text-[15px]">
                           {ing.amount !== 0 ? formatAmount(ing.amount) : ''} {ing.unit}
                         </span>
                       )}
@@ -1343,26 +1297,24 @@ export function RecipeDetail() {
           </div>
         </div>
 
-        <div className="card mb-4">
+        <div id="recipe-steps" className="card mise-detail-section">
           <div className="px-5 py-4" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
-            <h3 className="font-display text-[16px] font-medium text-primary">步骤</h3>
+            <h2 className="font-display text-[21px] font-medium text-primary">制作步骤</h2>
           </div>
           <div className="divide-y divide-divider">
             {recipe.steps.map((step) => (
-              <div key={step.id} className="px-5 py-4">
+              <div key={step.id} className="px-5 py-6">
                 <div className="flex gap-4">
                   <span className="w-7 h-7 rounded-full bg-accent-tint text-accent flex items-center justify-center font-mono-digit text-[13px] font-semibold flex-shrink-0">
                     {step.order}
                   </span>
                   <div className="flex-1">
-                    <p className="text-primary text-[15px] leading-relaxed mb-2">{step.content}</p>
+                    <p className="text-primary text-[16px] leading-[1.9] mb-2 whitespace-pre-line">{step.content}</p>
                     {step.image && (
-                      <img
-                        src={step.image}
-                        alt={`步骤${step.order}`}
-                        referrerPolicy="no-referrer"
-                        className="mt-2 rounded-lg max-w-full max-h-48 object-cover"
-                      />
+                      <button type="button" className="mise-step-image" aria-label={`查看完整图片：步骤 ${step.order}`} onClick={() => setViewingImage({ src: step.image!, alt: `${displayRecipeTitle(recipe)} · 步骤 ${step.order}` })}>
+                        <img src={step.image} alt={`步骤${step.order}`} referrerPolicy="no-referrer" loading="lazy" />
+                        <span className="mise-image-hint"><Crop size={13} />查看全图</span>
+                      </button>
                     )}
                     {step.hasTimer && step.detectedDurationSeconds && (
                       <TimerButton
@@ -1394,25 +1346,8 @@ export function RecipeDetail() {
           <NutritionCard nutrition={nutrition.nutritionPer100g} />
         </div>
       </main>
-      {shareImageUrl ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/45 p-3 sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label={'\u5206\u4EAB\u83DC\u8C31\u957F\u56FE'}>
-          <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[20px] bg-background p-5 shadow-xl sm:rounded-[20px]">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-display text-[20px] text-primary">{'\u4FDD\u5B58\u83DC\u8C31\u957F\u56FE'}</h2>
-                <p className="mt-1 text-sm leading-relaxed text-secondary">{'\u957F\u6309\u56FE\u7247\u5373\u53EF\u4FDD\u5B58\u5230\u76F8\u518C\uFF0C\u518D\u4ECE\u5FAE\u4FE1\u53D1\u9001\u7ED9\u670B\u53CB\u3002'}</p>
-              </div>
-              <button onClick={() => setShareImageUrl(null)} className="rounded-full p-2 text-secondary hover:bg-divider/50" aria-label={'\u5173\u95ED'}>
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <img src={shareImageUrl} alt={`${recipe.title} \u83DC\u8C31\u957F\u56FE`} className="w-full rounded-[6px] bg-divider" />
-            <a href={shareImageUrl} target="_blank" rel="noreferrer" className="mt-4 flex h-11 items-center justify-center rounded-[6px] border border-divider text-sm text-primary">
-              {'\u6253\u5F00\u539F\u56FE'}
-            </a>
-          </div>
-        </div>
-      ) : null}
+      {viewingImage && <ImageViewer src={viewingImage.src} alt={viewingImage.alt} onClose={() => setViewingImage(null)} />}
+      {shareImageUrl && <Modal title="保存菜谱长图" description="长按图片保存到相册，再从微信发送。" onClose={() => setShareImageUrl(null)}><img src={shareImageUrl} alt={displayRecipeTitle(recipe)+' 菜谱长图'} className="w-full rounded bg-divider" /><a href={shareImageUrl} target="_blank" rel="noreferrer" className="mise-secondary-button mt-4 w-full">打开完整长图</a></Modal>}
       <AdminPinDialog
         open={pinDialogOpen}
         onCancel={cancelAdminUnlock}

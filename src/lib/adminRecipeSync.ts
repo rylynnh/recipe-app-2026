@@ -1,3 +1,4 @@
+import { adminVerificationFailure } from './adminVerification';
 import { supabase } from './supabase';
 import { Recipe } from '../types';
 import { getAdminPin } from './adminMode';
@@ -19,7 +20,7 @@ export async function verifyAdminPin(pin: string) {
     body: { action: 'verify', pin },
   });
   return error || !data?.ok
-    ? { ok: false, error: error?.message || data?.error || 'PIN 不正确' }
+    ? { ok: false, error: await adminVerificationFailure(error, data) }
     : { ok: true };
 }
 

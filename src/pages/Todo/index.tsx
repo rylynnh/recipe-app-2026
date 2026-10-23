@@ -123,7 +123,7 @@ export function Todo() {
               activeTab === 'pending' ? 'text-accent' : 'text-secondary'
             }`}
           >
-            <span className="font-medium">待做</span>
+            <span className="font-medium">待办</span>
             {pendingTodos.length > 0 && (
               <span className="px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full">
                 {pendingTodos.length}

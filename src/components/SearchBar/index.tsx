@@ -1,3 +1,4 @@
+import { displayRecipeTitle } from '../../utils/recipeTitle';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, X, Trash2 } from 'lucide-react';
@@ -128,11 +129,11 @@ export function SearchBar({ onSearch, currentQuery = '' }: SearchBarProps) {
                         {recipe.image ? (
                           <img src={resolveRecipeImage(recipe.image)} alt="" className="w-full h-full object-cover rounded-lg" />
                         ) : (
-                          <span className="text-xs text-secondary">{recipe.title[0]}</span>
+                          <span className="text-xs text-secondary">{displayRecipeTitle(recipe)[0]}</span>
                         )}
                       </div>
                       <div className="flex-1 text-left">
-                        <p className="text-sm font-medium text-primary">{recipe.title}</p>
+                        <p className="text-sm font-medium text-primary">{displayRecipeTitle(recipe)}</p>
                         <p className="text-xs text-secondary">{recipe.category}</p>
                       </div>
                     </button>

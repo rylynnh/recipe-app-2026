@@ -5,9 +5,9 @@ interface EmptyProps {
 
 export default function Empty({ title, description }: EmptyProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16">
+    <div className="flex flex-col items-center justify-center px-5 py-16 text-center">
       <h3 className="font-display text-lg text-secondary mb-2">{title}</h3>
-      {description && <p className="text-sm text-secondary">{description}</p>}
+      {description && <p className="max-w-sm text-sm leading-7 text-secondary">{description}</p>}
     </div>
   );
 }

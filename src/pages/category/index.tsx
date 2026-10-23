@@ -1,264 +1,70 @@
-import { useState, useMemo, useEffect } from 'react';
+import { displayRecipeTitle } from '../../utils/recipeTitle';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
+import { ArrowUpRight, Search, X, ChevronDown } from 'lucide-react';
 import { structureTags } from '../../data/mock';
 import { useRecipesStore } from '../../store/recipes';
 import Empty from '../../components/Empty';
 import { resolveRecipeImage } from '../../utils/recipeImage';
-
+import { recipeTime } from '../../utils/recipePresentation';
 export function Category() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const getStructureFromParams = () => searchParams.get('structure') || (searchParams.get('category') === 'vegetable' ? 's3' : 's1');
-  const [selectedStructure, setSelectedStructure] = useState(getStructureFromParams);
-  const [selectedIngredients, setSelectedIngredients] = useState<string[]>(() => {
-    const ingredient = searchParams.get('ingredient');
-    return ingredient ? [ingredient] : [];
-  });
+  const [params, setParams] = useSearchParams();
+  const structure = params.get('structure') || (params.get('category') === 'vegetable' ? 's3' : 's1');
+  const ingredient = params.get('ingredient') || '';
+  const query = params.get('q') || '';
   const [showAllTags, setShowAllTags] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [draft, setDraft] = useState(query);
   const navigate = useNavigate();
-  const { filterByStructure, filterByIngredient, recipes } = useRecipesStore();
-
-  const updateFilters = (structure: string, ingredients: string[]) => {
-    const nextParams = new URLSearchParams();
-    if (structure !== 's1') nextParams.set('structure', structure);
-    if (ingredients[0]) nextParams.set('ingredient', ingredients[0]);
-    setSearchParams(nextParams, { replace: true });
-  };
-
-  useEffect(() => {
-    const ingredient = searchParams.get('ingredient');
-    setSelectedStructure(getStructureFromParams());
-    setSelectedIngredients(ingredient ? [ingredient] : []);
-  }, [searchParams]);
-
-  const handleStructureSelect = (tagId: string) => {
-    setSelectedStructure(tagId);
-    setSelectedIngredients([]);
-    setShowAllTags(false);
-    updateFilters(tagId, []);
-  };
-
-  const handleIngredientToggle = (ingredientName: string) => {
-    const nextIngredients = selectedIngredients[0] === ingredientName ? [] : [ingredientName];
-    setSelectedIngredients(nextIngredients);
-    updateFilters(selectedStructure, nextIngredients);
-  };
-
-  const structureFiltered = filterByStructure(selectedStructure);
-  const filteredRecipes = filterByIngredient(structureFiltered, selectedIngredients);
-
-  const relevantIngredientTags = useMemo(() => {
-    const categoryRecipes = filterByStructure(selectedStructure);
-    const seen = new Set<string>();
-    return categoryRecipes.flatMap((recipe) => recipe.mainIngredient).filter((tag) => {
-      if (seen.has(tag)) return false;
-      seen.add(tag);
-      return true;
+  const {
+    recipes,
+    filterByStructure,
+    filterByIngredient,
+    searchRecipes
+  } = useRecipesStore();
+  const change = (nextStructure: string, nextIngredient: string, nextQuery = query) => {
+    const next = new URLSearchParams();
+    if (nextStructure !== 's1') next.set('structure', nextStructure);
+    if (nextIngredient) next.set('ingredient', nextIngredient);
+    if (nextQuery.trim()) next.set('q', nextQuery.trim());
+    setParams(next, {
+      replace: true
     });
-  }, [selectedStructure, recipes]);
-
-  const structureCounts = useMemo(() => {
-    const counts: Record<string, number> = { s1: recipes.length };
-    for (const tag of structureTags) {
-      if (tag.id === 's1') continue;
-      counts[tag.id] = recipes.filter((r) => r.categoryId === tag.id).length;
-    }
-    return counts;
-  }, [recipes]);
-
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 bg-background px-5 pt-5 pb-4" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
-        <h1 className="font-display text-[22px] font-medium text-primary">分类浏览</h1>
-      </header>
-
-      <div className="flex h-[calc(100dvh-125px)]">
-        {/* Left sidebar */}
-        <aside
-          className="flex-shrink-0 overflow-y-auto pb-4"
-          style={{ width: '88px', borderRight: '0.5px solid var(--color-divider)' }}
-        >
-          {structureTags.map((tag) => {
-            const isActive = selectedStructure === tag.id;
-            const count = structureCounts[tag.id] ?? 0;
-            return (
-              <button
-                key={tag.id}
-                onClick={() => handleStructureSelect(tag.id)}
-                className="w-full px-2 py-4 text-center transition-all duration-200"
-                style={{
-                  backgroundColor: isActive ? 'var(--color-accent-tint)' : 'transparent',
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                  fontSize: '14px',
-                }}
-              >
-                <span>{tag.name}</span>
-                {count > 0 && (
-                  <span
-                    className="block mt-1 font-mono-digit"
-                    style={{
-                      fontSize: '11px',
-                      color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                      opacity: isActive ? 0.5 : 0.4,
-                    }}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </aside>
-
-        {/* Right main area */}
-        <main className="flex-1 overflow-y-auto pb-6">
-          {/* Ingredient chips row */}
-          <div className="relative flex items-center gap-3 px-5 py-3" style={{ borderBottom: '0.5px solid var(--color-divider)' }}>
-            <div className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {relevantIngredientTags.map((tag) => {
-                const isSelected = selectedIngredients.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    onClick={() => handleIngredientToggle(tag)}
-                    className="shrink-0 whitespace-nowrap px-3 py-1 rounded-full text-[12px] transition-colors"
-                    style={{
-                      backgroundColor: isSelected ? 'var(--color-accent-tint)' : 'transparent',
-                      color: isSelected ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                      fontWeight: isSelected ? 500 : 400,
-                      border: isSelected ? 'none' : '1px solid var(--color-divider)',
-                    }}
-                  >
-                    {tag}
-                  </button>
-                );
-              })}
-              {selectedIngredients.length > 0 && (
-                <button
-                  onClick={() => {
-                    setSelectedIngredients([]);
-                    updateFilters(selectedStructure, []);
-                  }}
-                  className="shrink-0 whitespace-nowrap px-2 py-1 text-[12px] transition-colors"
-                  style={{ color: 'var(--color-text-secondary)', opacity: 0.5 }}
-                >
-                  清除
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowAllTags((previous) => !previous)}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-divider text-secondary transition-colors hover:bg-background"
-              aria-label={showAllTags ? '收起全部标签' : '展开全部标签'}
-              aria-expanded={showAllTags}
-            >
-              <ChevronDown className={`h-4 w-4 transition-transform ${showAllTags ? 'rotate-180' : ''}`} strokeWidth={1.6} />
-            </button>
-            <span className="shrink-0 border-l border-divider pl-3 font-mono-digit text-[12px] text-secondary" aria-label={`当前筛选结果 ${filteredRecipes.length} 道`}>
-              {filteredRecipes.length}
-            </span>
-            {showAllTags && (
-              <div className="absolute left-0 right-0 top-full z-20 border-b border-divider bg-card px-5 py-3 shadow-[0_8px_16px_rgba(40,35,28,0.08)]">
-                <div className="flex max-h-56 flex-wrap gap-2 overflow-y-auto">
-                  {relevantIngredientTags.map((tag) => {
-                    const isSelected = selectedIngredients.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => handleIngredientToggle(tag)}
-                        className="rounded-full px-3 py-1.5 text-[12px] transition-colors"
-                        style={{
-                          backgroundColor: isSelected ? 'var(--color-accent-tint)' : 'transparent',
-                          color: isSelected ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                          fontWeight: isSelected ? 500 : 400,
-                          border: isSelected ? 'none' : '1px solid var(--color-divider)',
-                        }}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Recipe list */}
-          <div className="px-5 py-4">
-            {filteredRecipes.length === 0 ? (
-              <Empty title="暂无菜谱" description="该分类下还没有菜谱" />
-            ) : (
-              <div className="space-y-4">
-                {filteredRecipes.map((recipe) => (
-                  <div
-                    key={recipe.id}
-                    onClick={() => navigate(`/recipe/${recipe.id}`)}
-                    className="flex gap-4 cursor-pointer group"
-                  >
-                    <div
-                      className="relative rounded-card overflow-hidden flex-shrink-0"
-                      style={{
-                        width: '80px',
-                        height: '60px',
-                        backgroundColor: '#EAE6DE',
-                      }}
-                    >
-                      {recipe.image ? (
-                        <img
-                          src={resolveRecipeImage(recipe.image)}
-                          alt={recipe.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center p-1">
-                          <span className="font-display text-secondary text-xs text-center leading-snug line-clamp-3">
-                            {recipe.title}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 py-0.5">
-                      <h3
-                        className="font-display text-[16px] font-medium leading-snug mb-1.5 truncate transition-colors duration-200"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
-                        {recipe.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        <span
-                          className="text-[11px] px-2 py-0.5 rounded"
-                          style={{
-                            border: '1px solid var(--color-divider)',
-                            color: 'var(--color-text-secondary)',
-                          }}
-                        >
-                          {recipe.structureTag}
-                        </span>
-                        {recipe.mainIngredient.slice(0, 2).map((tag) => (
-                          <span
-                            key={tag}
-                            className="text-[11px] px-2 py-0.5 rounded"
-                            style={{
-                              border: '1px solid var(--color-divider)',
-                              color: 'var(--color-text-secondary)',
-                              opacity: 0.7,
-                            }}
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-    </div>
-  );
+  };
+  const categoryRecipes = filterByStructure(structure);
+  const foundIds = query ? new Set(searchRecipes(query).map(recipe => recipe.id)) : null;
+  const filtered = filterByIngredient(categoryRecipes, ingredient ? [ingredient] : []).filter(recipe => !foundIds || foundIds.has(recipe.id));
+  const tags = [...new Set(categoryRecipes.flatMap(recipe => recipe.mainIngredient))];
+  const counts = Object.fromEntries(structureTags.map(tag => [tag.id, tag.id === 's1' ? recipes.length : recipes.filter(recipe => recipe.categoryId === tag.id).length]));
+  const categoryName = structureTags.find(tag => tag.id === structure)?.name || '全部';
+  return <div className="mise-library mise-shell">
+    <header className="mise-library-header"><div className="mise-section-heading"><div><p className="mise-eyebrow">RECIPE COLLECTION</p><h1>我的食谱</h1></div><span>{recipes.length} 道收录</span></div><form className="mise-search" role="search" onSubmit={event => {
+        event.preventDefault();
+        change(structure, ingredient, draft);
+      }}><Search size={18} strokeWidth={1.5} aria-hidden="true" /><input aria-label="在菜谱库中搜索" placeholder="搜索菜名或食材" value={composing ? draft : query} onCompositionStart={() => {
+          setDraft(query);
+          setComposing(true);
+        }} onCompositionEnd={event => {
+          setComposing(false);
+          setDraft(event.currentTarget.value);
+          change(structure, ingredient, event.currentTarget.value);
+        }} onChange={event => {
+          setDraft(event.target.value);
+          if (!composing) change(structure, ingredient, event.target.value);
+        }} />{query && <button type="button" aria-label="清除搜索" onClick={() => {
+          setDraft('');
+          change(structure, ingredient, '');
+        }}><X size={16} /></button>}</form></header>
+    <div className="mise-library-layout"><aside className="mise-categories" aria-label="菜谱分类">{structureTags.map(tag => <button key={tag.id} aria-pressed={structure === tag.id} onClick={() => {
+          change(tag.id, '');
+          setShowAllTags(false);
+        }}><span>{tag.name}</span><span className="mise-count">{counts[tag.id]}</span></button>)}</aside><main className="mise-library-results">
+      {tags.length > 0 && <div className="mise-filter-bar"><div className={`mise-filter-tags ${showAllTags ? 'is-expanded' : ''}`}>{tags.map(tag => <button key={tag} aria-pressed={ingredient === tag} onClick={() => change(structure, ingredient === tag ? '' : tag)}>{tag}</button>)}</div><button className="mise-filter-expand" aria-label={showAllTags ? '收起食材' : '展开全部食材'} aria-expanded={showAllTags} onClick={() => setShowAllTags(!showAllTags)}><ChevronDown size={17} className={showAllTags ? 'rotate-180' : ''} /></button></div>}
+      <div className="mise-results-summary"><span role="status">{ingredient || categoryName} · {filtered.length} 道</span>{(ingredient || query) && <button onClick={() => {
+            setDraft('');
+            change(structure, '', '');
+          }}>清除筛选 <X size={12} /></button>}</div>
+      {filtered.length ? <div className="mise-library-list">{filtered.map(recipe => <button key={recipe.id} className="mise-library-row" onClick={() => navigate(`/recipe/${recipe.id}`)}><div className="mise-library-image">{recipe.image ? <img src={resolveRecipeImage(recipe.image)} alt="" loading="lazy" /> : <span className="mise-placeholder-mark">M</span>}</div><div className="mise-library-row-copy"><h2>{displayRecipeTitle(recipe)}</h2><p>{[recipe.structureTag, recipeTime(recipe) || recipe.mainIngredient.slice(0, 2).join(' / ')].filter(Boolean).join(' · ')}</p></div><ArrowUpRight size={16} aria-hidden="true" /></button>)}</div> : <Empty title="这里还没有合适的菜谱" description="试试其他食材，或清除筛选条件。" />}
+    </main></div>
+  </div>;
 }

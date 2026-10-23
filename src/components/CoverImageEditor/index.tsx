@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Check, RotateCcw } from 'lucide-react';
 
@@ -12,7 +12,6 @@ interface CoverImageEditorProps {
 }
 
 const OUTPUT_WIDTH = 1200;
-const OUTPUT_HEIGHT = 900;
 
 export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEditorProps) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -25,6 +24,9 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
   const [coverScale, setCoverScale] = useState(1);
   const [zoom, setZoom] = useState(1);
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
+  const [ratio, setRatio] = useState<'original' | 'landscape' | 'square' | 'portrait'>('original');
+  const zoomId = useId();
+  const aspectRatio = ratio === 'original' ? (naturalSize ? naturalSize.width / naturalSize.height : 4 / 3) : ratio === 'square' ? 1 : ratio === 'portrait' ? 3 / 4 : 4 / 3;
 
   useLayoutEffect(() => {
     const source = imageRef.current;
@@ -37,14 +39,19 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
     const stage = stageRef.current;
     if (!stage || !naturalSize) return;
 
-    const rect = stage.getBoundingClientRect();
-    const nextStage = { width: rect.width, height: rect.height };
-    const nextCoverScale = Math.max(nextStage.width / naturalSize.width, nextStage.height / naturalSize.height);
-    setStageSize(nextStage);
-    setCoverScale(nextCoverScale);
-    setZoom(1);
-    setPosition({ x: 0, y: 0 });
-  }, [naturalSize]);
+    const measure = () => {
+      const rect = stage.getBoundingClientRect();
+      const nextStage = { width: rect.width, height: rect.height };
+      setStageSize(nextStage);
+      setCoverScale(Math.max(nextStage.width / naturalSize.width, nextStage.height / naturalSize.height));
+      setZoom(1);
+      setPosition({ x: 0, y: 0 });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [naturalSize, aspectRatio]);
 
   const constrainPosition = (nextZoom: number, nextPosition: Position): Position => {
     if (!naturalSize || !stageSize) return nextPosition;
@@ -112,10 +119,15 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
       return;
     }
 
+    if (ratio === 'original' && zoom === 1) {
+      onConfirm(image);
+      return;
+    }
+
     try {
       const canvas = document.createElement('canvas');
       canvas.width = OUTPUT_WIDTH;
-      canvas.height = OUTPUT_HEIGHT;
+      canvas.height = Math.round(OUTPUT_WIDTH / aspectRatio);
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Canvas context is unavailable');
 
@@ -143,10 +155,23 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="封面裁剪比例">
+        {([{ id: 'original', label: '原比例' }, { id: 'landscape', label: '横图 4:3' }, { id: 'square', label: '方图 1:1' }, { id: 'portrait', label: '竖图 3:4' }] as const).map((option) => <button key={option.id} type="button" aria-pressed={ratio === option.id} onClick={() => setRatio(option.id)} className={`min-h-10 rounded border px-3 text-xs ${ratio === option.id ? 'border-primary bg-primary text-white' : 'border-divider text-secondary'}`}>{option.label}</button>)}
+      </div>
       <div
         ref={stageRef}
         className="relative w-full touch-none overflow-hidden rounded-lg bg-[#EAE6DE]"
-        style={{ aspectRatio: '4 / 3' }}
+        style={{ aspectRatio, maxWidth: `${55 * aspectRatio}dvh`, marginInline: 'auto' }}
+        tabIndex={0}
+        role="group"
+        aria-label="封面裁剪区域，可拖动图片或使用方向键调整位置"
+        onKeyDown={(event) => {
+          const directions: Record<string, Position> = { ArrowLeft: { x: -12, y: 0 }, ArrowRight: { x: 12, y: 0 }, ArrowUp: { x: 0, y: -12 }, ArrowDown: { x: 0, y: 12 } };
+          const direction = directions[event.key];
+          if (!direction) return;
+          event.preventDefault();
+          setPosition((current) => constrainPosition(zoom, { x: current.x + direction.x, y: current.y + direction.y }));
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishDrag}
@@ -182,14 +207,15 @@ export function CoverImageEditor({ image, onCancel, onConfirm }: CoverImageEdito
         <p className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1.5 text-xs text-white">拖动图片调整位置</p>
       </div>
 
-      <p className="text-center text-xs text-secondary">单指拖动图片 · 双指捏合缩放</p>
+      <div className="flex items-center gap-3"><label htmlFor={zoomId} className="text-xs text-secondary">缩放</label><input id={zoomId} aria-label="封面缩放" type="range" min="1" max="3" step="0.02" value={zoom} onChange={(event) => handleZoom(Number(event.target.value))} className="min-w-0 flex-1 accent-[#89734f]" /><button type="button" onClick={() => { setZoom(1); setPosition({ x: 0, y: 0 }); }} className="min-h-10 px-2 text-xs text-secondary">重置</button></div>
+      <p className="text-center text-xs leading-5 text-secondary">拖动调整位置，也可双指缩放。选择原比例并保持 1 倍缩放可保留完整图片。</p>
 
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex flex-1 items-center justify-center gap-2 rounded-input bg-bg-input py-3 text-text-secondary">
+        <button type="button" onClick={onCancel} className="flex flex-1 items-center justify-center gap-2 rounded-input border border-divider py-3 text-secondary">
           <RotateCcw className="h-4 w-4" />取消
         </button>
-        <button type="button" onClick={apply} className="flex flex-1 items-center justify-center gap-2 rounded-input bg-accent py-3 text-text-white">
-          <Check className="h-4 w-4" />保存图片
+        <button type="button" onClick={apply} disabled={!naturalSize || !stageSize} className="flex flex-1 items-center justify-center gap-2 rounded-input bg-primary py-3 text-white disabled:opacity-40">
+          <Check className="h-4 w-4" />{ratio === 'original' && zoom === 1 ? '保留原图' : '使用裁剪'}
         </button>
       </div>
     </div>

@@ -1,3 +1,5 @@
+import { notify } from '../../store/feedback';
+import { displayRecipeTitle } from '../../utils/recipeTitle';
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, X, Loader2, Plus, Trash2, Image as ImageIcon, Crop, Check, RotateCcw, Menu, Timer, Save } from 'lucide-react';
@@ -176,7 +178,7 @@ export function AddRecipe() {
     try {
       const recipe = await importXiachufangRecipe(xiachufangUrl.trim());
       setPasteText([
-        recipe.title,
+        displayRecipeTitle(recipe),
         recipe.description,
         '食材',
         ...recipe.ingredients.map((ingredient) => [
@@ -189,7 +191,7 @@ export function AddRecipe() {
         recipe.tips ? '小贴士' : '',
         recipe.tips || '',
       ].filter(Boolean).join('\n'));
-      setTitle(recipe.title);
+      setTitle(displayRecipeTitle(recipe));
       setIngredients(coalesceIngredientGroups(recipe.ingredients));
       setSteps(recipe.steps.map((step) => ({
         content: step.content,
@@ -262,7 +264,7 @@ export function AddRecipe() {
       });
       setOcrText(text);
     } catch {
-      alert('OCR 识别失败，请重试或手动输入文字');
+      notify('图片文字识别失败，请重试或手动输入', 'error');
     } finally {
       setIsProcessing(false);
       setOcrProgress('');
@@ -585,6 +587,7 @@ export function AddRecipe() {
       sourceSnapshot: xiachufangSource ? JSON.stringify(xiachufangSource) : undefined,
       note: note || undefined,
     });
+    notify('已收录菜谱');
     navigate('/');
   };
 
@@ -594,7 +597,7 @@ export function AddRecipe() {
     if (!categoryId) missing.push('分类');
     if (ingredients.length === 0) missing.push('食材');
     if (missing.length > 0) {
-      alert(`请填写：${missing.join('、')}`);
+      notify(`请填写：${missing.join('、')}`, 'error');
       return;
     }
 
@@ -612,7 +615,7 @@ export function AddRecipe() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="mise-form min-h-screen bg-background">
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm px-4 py-4 border-b border-divider flex items-center gap-4">
         <button
           onClick={() => navigate('/mine')}
@@ -652,12 +655,12 @@ export function AddRecipe() {
           <div className="card p-4">
             <label className="block text-sm font-medium text-primary mb-2">封面图片</label>
             {coverImage && !isCropping ? (
-              <div className="relative w-full rounded-lg overflow-hidden" style={{ aspectRatio: '4/3', backgroundColor: '#EAE6DE' }}>
+              <div className="mise-edit-cover relative w-full rounded-lg overflow-hidden">
                 <img
                   ref={cropImageRef}
                   src={coverImage}
                   alt="封面预览"
-                  className="w-full h-full object-cover"
+                  className="mise-edit-cover-image"
                 />
                 <button
                   onClick={() => setCoverImage('')}
@@ -667,6 +670,7 @@ export function AddRecipe() {
                 </button>
                 <button
                   onClick={() => startCrop()}
+                  aria-label="调整封面裁剪"
                   className="absolute bottom-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70 transition-colors"
                 >
                   <Crop className="w-4 h-4" />
@@ -724,7 +728,6 @@ export function AddRecipe() {
               ))}
             </select>
           </div>
-
           {/* Tags */}
           <div className="card p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -777,7 +780,7 @@ export function AddRecipe() {
 
           {/* Servings */}
           <div className="card p-4">
-            <label className="block text-sm font-medium text-primary mb-2">份量</label>
+            <label className="block text-sm font-medium text-primary mb-2">配方基准量</label>
             <input
               type="text"
               inputMode="text"
