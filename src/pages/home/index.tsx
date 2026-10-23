@@ -1,3 +1,4 @@
+import { dailyFeaturedRecipe, featuredDayIndex } from '../../utils/dailyFeatured';
 import { displayRecipeTitle } from '../../utils/recipeTitle';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Search, X } from 'lucide-react';
@@ -37,7 +38,17 @@ export function Home() {
   }, [draft, query, composing, setParams]);
   const recipes = searchRecipes(query);
   const recent = useMemo(() => [...allRecipes].sort((a, b) => b.createdAt - a.createdAt).slice(0, 4), [allRecipes]);
-  const featured = allRecipes.find(recipe => recipe.image && recipe.structureTag !== '烘焙' && recipe.structureTag !== '酱料' && recipe.ingredients.length > 0) || allRecipes[0];
+  const [featuredDay, setFeaturedDay] = useState(featuredDayIndex);
+  useEffect(() => {
+    const refreshDay = () => setFeaturedDay(featuredDayIndex());
+    const timer = window.setInterval(refreshDay, 60000);
+    document.addEventListener('visibilitychange', refreshDay);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshDay);
+    };
+  }, []);
+  const featured = useMemo(() => dailyFeaturedRecipe(allRecipes, featuredDay), [allRecipes, featuredDay]);
   const ingredients = useMemo(() => {
     const present = new Set(allRecipes.flatMap(recipe => recipe.mainIngredient));
     return ['鸡肉', '牛肉', '猪肉', '鱼', '虾', '鸡蛋', '豆制品', '茄子', '花菜', '包菜'].filter(item => present.has(item)).slice(0, 6);
